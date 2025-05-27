@@ -25,7 +25,7 @@ TOKEN = os.getenv("TOKEN")
 # Initialize bot application
 app = Application.builder().token(TOKEN).build()
 
-async def start(update: Update, context : ContextTypes.DEFAULT_type):
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [InlineKeyboardButton("📢 Join Our Community", url="https://t.me/taskpaybot122")],
         [InlineKeyboardButton("💎 Get Premium Prediction", callback_data="whatsapp_task")],

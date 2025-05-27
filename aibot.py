@@ -291,5 +291,33 @@ async def view_testimonies(update: Update, context: ContextTypes.DEFAULT_TYPE):
 app.add_handler(CallbackQueryHandler(view_testimonies, pattern="view_testimonies"))
 
 
+async def view_testimonies_p(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+
+    cursor.execute("""
+        SELECT file_id, caption FROM testimonies
+        ORDER BY id DESC LIMIT 10
+    """)
+    rows = cursor.fetchall()
+
+    if not rows:
+        await update.message.reply_text("📭 No testimonies available yet.")
+        return
+
+    for row in rows:
+        caption = f"🧾 *Testimony from Anonymous*\n\n{row['caption'] or ''}"
+        try:
+            await context.bot.send_photo(
+                chat_id=update.effective_chat.id,
+                photo=row["file_id"],
+                caption=caption,
+                parse_mode="Markdown"
+            )
+        except Exception as e:
+            print(f"Failed to send testimony: {e}")
+
+app.add_handler(MessageHandler(filters.Text("📸 Testimonies"), view_testimonies_p))
+
+
 if __name__ == "__main__":
     app.run_polling()

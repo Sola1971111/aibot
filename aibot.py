@@ -265,7 +265,7 @@ app.add_handler(CallbackQueryHandler(handle_testimony_approval, pattern="^(appro
 async def view_testimonies(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    
+
     cursor.execute("""
         SELECT file_id, caption FROM testimonies
         ORDER BY id DESC LIMIT 10
@@ -288,7 +288,7 @@ async def view_testimonies(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception as e:
             print(f"Failed to send testimony: {e}")
 
-app.add_handler(CallbackQueryHandler("view_testimonies", pattern="^view_testimonies$"))
+app.add_handler(CallbackQueryHandler("view_testimonies", pattern="view_testimonies"))
 
 
 if __name__ == "__main__":

@@ -263,6 +263,9 @@ async def handle_testimony_approval(update: Update, context: ContextTypes.DEFAUL
 app.add_handler(CallbackQueryHandler(handle_testimony_approval, pattern="^(approve_testimony|reject_testimony)_"))
 
 async def view_testimonies(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
     cursor.execute("""
         SELECT file_id, caption FROM testimonies
         ORDER BY id DESC LIMIT 10

@@ -85,7 +85,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
      
     keyboard = [
         [InlineKeyboardButton("📢 Join Our Community", url="https://t.me/cooziepicksAI")],
-        [InlineKeyboardButton("💎 Get Premium Prediction", callback_data="whatsapp_task")],
+        [InlineKeyboardButton("💎 Get Premium Prediction", callback_data="subcription")],
         [InlineKeyboardButton("📸 Testimonies from Community", callback_data="view_testimonies")],
         [InlineKeyboardButton("🎯 Today’s Pick", callback_data="deposit_now")],
         [InlineKeyboardButton("🤖 AI Daily Picks", callback_data="get_vip")]
@@ -317,6 +317,20 @@ async def view_testimonies_p(update: Update, context: ContextTypes.DEFAULT_TYPE)
             print(f"Failed to send testimony: {e}")
 
 app.add_handler(MessageHandler(filters.Text("📸 Testimonies"), view_testimonies_p))
+
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+
+async def show_subscription_options(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    keyboard = [
+        [InlineKeyboardButton("1 Month - ₦9500", callback_data="sub_9500")],
+        [InlineKeyboardButton("3 Months - ₦25000", callback_data="sub_25000")]
+    ]
+    await update.callback_query.message.reply_text(
+        "💎 Choose a VIP Subscription Plan:",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+
+app.add_handler(CallbackQueryHandler(show_subscription_options, pattern="subcription"))
 
 
 if __name__ == "__main__":

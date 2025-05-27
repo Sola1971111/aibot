@@ -277,7 +277,7 @@ async def view_testimonies(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     for row in rows:
-        caption = f"🧾 *Testimony from Anonymous*"
+        caption = f"🧾 *Testimony from Anonymous*\n\n{row['caption'] or ''}"
         try:
             await context.bot.send_photo(
                 chat_id=update.effective_chat.id,
@@ -288,7 +288,7 @@ async def view_testimonies(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception as e:
             print(f"Failed to send testimony: {e}")
 
-app.add_handler(CallbackQueryHandler("view_testimonies", pattern="view_testimonies"))
+app.add_handler(CallbackQueryHandler(view_testimonies, pattern="view_testimonies"))
 
 
 if __name__ == "__main__":

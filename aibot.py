@@ -64,6 +64,17 @@ CREATE TABLE IF NOT EXISTS testimonies (
 conn.commit()
 
 cursor.execute("""
+    CREATE TABLE IF NOT EXISTS paid_predictions (
+        id SERIAL PRIMARY KEY,
+        user_id BIGINT UNIQUE,
+        amount INTEGER,
+        duration INTEGER,
+        expires_at TIMESTAMP
+    )
+""")
+conn.commit()
+
+cursor.execute("""
     CREATE TABLE IF NOT EXISTS prediction_users (
         user_id BIGINT PRIMARY KEY,
         joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -322,8 +333,8 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 async def show_subscription_options(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
-        [InlineKeyboardButton("1 Month - ₦9500", callback_data="sub_9500")],
-        [InlineKeyboardButton("3 Months - ₦25000", callback_data="sub_25000")]
+        [InlineKeyboardButton("1 Month - ₦9500", callback_data="sub_100")],
+        [InlineKeyboardButton("3 Months - ₦25000", callback_data="sub_250")]
     ]
     await update.callback_query.message.reply_text(
         "💎 Choose a VIP Subscription Plan:",
@@ -344,7 +355,7 @@ async def handle_subscription_payment(update: Update, context: ContextTypes.DEFA
     plan = int(query.data.split("_")[1])
 
     # Map plan amount to duration
-    duration = 30 if plan == 9500 else 90 if plan == 25000 else 30
+    duration = 30 if plan == 100 else 90 if plan == 250 else 30
 
     email = f"user_{user_id}@cooziepicks.com"
     headers = {
@@ -381,6 +392,37 @@ async def handle_subscription_payment(update: Update, context: ContextTypes.DEFA
 
 app.add_handler(CallbackQueryHandler(handle_subscription_payment, pattern="^sub_"))
 
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from datetime import datetime, timedelta, time
+
+async def check_sub_expiry(context):
+    today = datetime.now().date()
+
+    # Fetch users whose subscription expires in 2 or 1 days
+    cursor.execute("""
+        SELECT user_id, expires_at FROM paid_predictions
+        WHERE DATE(expires_at) IN (%s, %s)
+    """, (today + timedelta(days=2), today + timedelta(days=1)))
+    
+    expiring_users = cursor.fetchall()
+
+    for user in expiring_users:
+        expires_on = user["expires_at"].strftime("%Y-%m-%d")
+        await context.bot.send_message(
+            chat_id=user["user_id"],
+            text=(
+                f"⚠️ Your VIP subscription will expire on *{expires_on}*.\n"
+                "Click below to renew now."
+            ),
+            parse_mode="Markdown",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("🔁 Renew Now", callback_data="subscribe")
+            ]])
+        )
+
+# Schedule this to run daily
+job_queue = app.job_queue
+job_queue.run_daily(check_sub_expiry, time=time(hour=8, minute=0))
 
 if __name__ == "__main__":
     app.run_polling()

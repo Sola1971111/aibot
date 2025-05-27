@@ -84,9 +84,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     conn.commit()
      
     keyboard = [
-        [InlineKeyboardButton("📢 Join Our Community", url="https://t.me/taskpaybot122")],
+        [InlineKeyboardButton("📢 Join Our Community", url="https://t.me/cooziepicksAI")],
         [InlineKeyboardButton("💎 Get Premium Prediction", callback_data="whatsapp_task")],
-        [InlineKeyboardButton("📸 Testimonies from Community", callback_data="daily_bonus")],
+        [InlineKeyboardButton("📸 Testimonies from Community", callback_data="view_testimonies")],
         [InlineKeyboardButton("🎯 Today’s Pick", callback_data="deposit_now")],
         [InlineKeyboardButton("🤖 AI Daily Picks", callback_data="get_vip")]
     ]
@@ -209,6 +209,83 @@ async def handle_uploaded_testimony(update: Update, context: ContextTypes.DEFAUL
 
 # Register the photo handler
 app.add_handler(MessageHandler(filters.PHOTO, handle_uploaded_testimony))
+
+CHANNEL_ID = -1002565085815  # Replace with your actual channel ID
+
+
+async def handle_testimony_approval(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    action, user_id = query.data.split("_")[0], int(query.data.split("_")[2])
+
+    # Get testimony
+    cursor.execute("SELECT * FROM pending_testimonies WHERE user_id = %s", (user_id,))
+    row = cursor.fetchone()
+
+    if not row:
+        await query.edit_message_text("❌ Testimony not found or already handled.")
+        return
+
+    if "approve" in query.data:
+        # Save to approved table
+        cursor.execute("""
+            INSERT INTO testimonies (user_id, file_id, caption, username)
+            VALUES (%s, %s, %s, %s)
+        """, (user_id, row["file_id"], row["caption"], row["username"]))
+        conn.commit()
+         
+        # Send to channel
+        caption = f"🧾 *Testimony from @{row['username']}*\n\n{row['caption'] or ''}"
+
+        reply_markup = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🎯 Get Today’s Games", url="https://t.me/CoozieAIbot")]
+        ])
+        
+        try:
+            await context.bot.send_photo(
+                chat_id=CHANNEL_ID,
+                photo=row["file_id"],
+                caption=caption,
+                parse_mode="Markdown"
+            )
+        except Exception as e:
+            print(f"❌ Failed to send to channel: {e}")
+
+        await query.edit_message_caption("✅ Testimony approved and published.")
+    else:
+        await query.edit_message_caption("❌ Testimony rejected.")
+
+    # Remove from pending
+    cursor.execute("DELETE FROM pending_testimonies WHERE user_id = %s", (user_id,))
+    conn.commit()
+
+app.add_handler(CallbackQueryHandler(handle_testimony_approval, pattern="^(approve_testimony|reject_testimony)_"))
+
+async def view_testimonies(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    cursor.execute("""
+        SELECT file_id, caption FROM testimonies
+        ORDER BY id DESC LIMIT 10
+    """)
+    rows = cursor.fetchall()
+
+    if not rows:
+        await update.message.reply_text("📭 No testimonies available yet.")
+        return
+
+    for row in rows:
+        caption = f"🧾 *Testimony from Anonymous*\n\n{row['caption'] or ''}"
+        try:
+            await context.bot.send_photo(
+                chat_id=update.effective_chat.id,
+                photo=row["file_id"],
+                caption=caption,
+                parse_mode="Markdown"
+            )
+        except Exception as e:
+            print(f"Failed to send testimony: {e}")
+
+app.add_handler(CommandHandler("testimonies", view_testimonies))
 
 
 if __name__ == "__main__":

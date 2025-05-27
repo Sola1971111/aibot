@@ -25,27 +25,25 @@ TOKEN = os.getenv("TOKEN")
 # Initialize bot application
 app = Application.builder().token(TOKEN).build()
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):    
     keyboard = [
         [InlineKeyboardButton("📢 Join Our Community", url="https://t.me/taskpaybot122")],
         [InlineKeyboardButton("💎 Get Premium Prediction", callback_data="whatsapp_task")],
-        [InlineKeyboardButton("📸 Testimonies", callback_data="daily_bonus")],
+        [InlineKeyboardButton("📸 Testimonies from Community", callback_data="daily_bonus")],
         [InlineKeyboardButton("🎯 Today’s Pick", callback_data="deposit_now")],
-        [InlineKeyboardButton("🤖 AI Picks", callback_data="get_vip")]
+        [InlineKeyboardButton("🤖 AI Daily Picks", callback_data="get_vip")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
 # Persistent keyboard
     persistent_keyboard = ReplyKeyboardMarkup(
-        [["💎 Get Prediction", "🎁 Claim Daily Bonus"],
-         ["📸 Testimonies", "💵 Withdraw"],
-         ["🎯 Today’s Pick", "🎡 Spin and Win"],
-         ["🤖 AI Picks", "💎Upgrade to VIP"]],
+        [["💎 Get Prediction", "📸 Testimonies"],
+         ["🤖 AI Picks", "🎯 Today’s Pick"]],
         resize_keyboard=True, one_time_keyboard=False
     )
 
     await update.message.reply_text(
-        f"🎉 Welcome to Cooziepicks Ai predicition Bot",
+        f"Welcome to CooziePicks! /n/nYour #1 home for premium football predictions, expert AI picks, daily tips, and real earnings through engaging tasks. Join now and win smarter!",
         reply_markup=reply_markup
     )
 

@@ -25,11 +25,14 @@ TOKEN = os.getenv("TOKEN")
 # Admin ID (Replace with your own Telegram ID to receive withdrawal requests)
 ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))  # Replace this with your Telegram user ID
 
-load_dotenv()
-DATABASE_URL = os.getenv("DATABASE_URL")
+
 
 # Initialize bot application
 app = Application.builder().token(TOKEN).build()
+
+load_dotenv()
+DATABASE_URL = os.getenv("DATABASE_URL")
+
 
 # ✅ Connect to PostgreSQL (Railway)
 conn = psycopg2.connect(
@@ -79,9 +82,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Save user to prediction_users if not already there
     cursor.execute("INSERT INTO prediction_users (user_id) VALUES (%s) ON CONFLICT DO NOTHING", (user_id,))
     conn.commit()
-    
-    # Update bot description with user count
-    await update_bot_description(context)
      
     keyboard = [
         [InlineKeyboardButton("📢 Join Our Community", url="https://t.me/taskpaybot122")],

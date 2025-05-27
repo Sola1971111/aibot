@@ -43,7 +43,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     await update.message.reply_text(
-        f"Welcome to CooziePicks! /n/nYour #1 home for premium football predictions, expert AI picks, daily tips, and real earnings through engaging tasks. Join now and win smarter!",
+        f"Welcome to CooziePicks! \n\nYour #1 home for premium football predictions, expert AI picks, daily tips, and real earnings through engaging tasks. Join now and win smarter!",
         reply_markup=reply_markup
     )
 

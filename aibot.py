@@ -332,6 +332,55 @@ async def show_subscription_options(update: Update, context: ContextTypes.DEFAUL
 
 app.add_handler(CallbackQueryHandler(show_subscription_options, pattern="subcription"))
 
+import requests
+import os
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram.ext import ContextTypes
+
+async def handle_subscription_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    user_id = query.from_user.id
+    plan = int(query.data.split("_")[1])
+
+    # Map plan amount to duration
+    duration = 30 if plan == 9500 else 90 if plan == 25000 else 30
+
+    email = f"user_{user_id}@cooziepicks.com"
+    headers = {
+        "Authorization": f"Bearer {os.getenv('PAYSTACK_SECRET_KEY')}",
+        "Content-Type": "application/json"
+    }
+
+    payload = {
+        "email": email,
+        "amount": plan * 100,
+        "callback_url": "https://yourdomain.com/predictions/webhook",  # or your deployed webhook URL
+        "metadata": {
+            "user_id": user_id,
+            "plan": plan,
+            "duration": duration,
+            "type": "vip"
+        }
+    }
+
+    response = requests.post("https://api.paystack.co/transaction/initialize", json=payload, headers=headers)
+    data = response.json()
+
+    if data.get("status"):
+        payment_url = data["data"]["authorization_url"]
+        await query.message.reply_text(
+            f"💳 Click below to complete your VIP subscription of ₦{plan}.",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("Pay Now", url=payment_url)],
+                [InlineKeyboardButton("❌ Cancel", callback_data="cancel_sub")]
+            ])
+        )
+    else:
+        await query.message.reply_text("❌ Failed to create payment link. Please try again later.")
+
+app.add_handler(CallbackQueryHandler(handle_subscription_payment, pattern="^sub_"))
+
 
 if __name__ == "__main__":
     app.run_polling()

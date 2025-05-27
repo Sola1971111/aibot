@@ -277,7 +277,7 @@ async def view_testimonies(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     for row in rows:
-        caption = f"🧾 *Testimony from Anonymous*\n\n{row['caption'] or ''}"
+        caption = f"🧾 *Testimony from Anonymous*"
         try:
             await context.bot.send_photo(
                 chat_id=update.effective_chat.id,

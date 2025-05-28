@@ -334,7 +334,8 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 async def show_subscription_options(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [InlineKeyboardButton("1 Month - ₦9500", callback_data="sub_100")],
-        [InlineKeyboardButton("3 Months - ₦25000", callback_data="sub_250")]
+        [InlineKeyboardButton("3 Months - ₦25000", callback_data="sub_250")],
+        [InlineKeyboardButton("❌ Cancel", callback_data="cancel_deposit")]
     ]
     await update.callback_query.message.reply_text(
         "💎 Choose a VIP Subscription Plan:",
@@ -384,13 +385,22 @@ async def handle_subscription_payment(update: Update, context: ContextTypes.DEFA
             f"💳 Click below to complete your VIP subscription of ₦{plan}.",
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("Pay Now", url=payment_url)],
-                [InlineKeyboardButton("❌ Cancel", callback_data="cancel_sub")]
+                [InlineKeyboardButton("❌ Cancel", callback_data="cancel_deposit")]
             ])
         )
     else:
         await query.message.reply_text("❌ Failed to create payment link. Please try again later.")
 
 app.add_handler(CallbackQueryHandler(handle_subscription_payment, pattern="^sub_"))
+
+async def cancel_deposit(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Cancels the deposit flow by deleting the message."""
+    query = update.callback_query
+    await query.message.delete()
+    await query.answer("🚫 Deposit canceled.")
+    context.user_data.pop("awaiting_deposit", None)  # Clear state if used
+
+app.add_handler(CallbackQueryHandler(cancel_deposit, pattern="^cancel_deposit$"))
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from datetime import datetime, timedelta, time

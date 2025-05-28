@@ -379,6 +379,8 @@ app.add_handler(CallbackQueryHandler(show_subscription_options, pattern="subscri
 async def show_subscription_options_p(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     user_id = user.id
+    chat_id = update.effective_chat.id
+
 
     # ✅ STEP 1: Check for active subscription
     cursor.execute("SELECT expires_at FROM paid_predictions WHERE user_id = %s", (user_id,))
@@ -404,8 +406,9 @@ async def show_subscription_options_p(update: Update, context: ContextTypes.DEFA
         [InlineKeyboardButton("3 Months - ₦25000", callback_data="sub_250")],
         [InlineKeyboardButton("❌ Cancel", callback_data="cancel_deposit")]
     ]
-
+    
     await context.bot.send_photo(
+        chat_id=chat_id,
         photo="https://imgur.com/a/rJ4q3N3",  # Replace with your hosted image URL
         caption=caption,
         parse_mode="Markdown",

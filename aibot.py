@@ -551,6 +551,18 @@ async def test_expiry(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 app.add_handler(CommandHandler("testexpiry", test_expiry))
 
+async def set_bot_commands(application):
+    await application.bot.set_my_commands([
+        BotCommand("start", "Start the bot"),
+        BotCommand("checkexpiry", "Check Sub Expiry date"),
+        BotCommand("dashboard", "View your Dashboard"),
+        BotCommand("setaccountdetails", "Fill your bank details"),
+        BotCommand("support", "Get help or contact admin"),
+    ])
+
+# Set bot commands when the bot starts
+app.post_init = set_bot_commands
+
 
 if __name__ == "__main__":
     app.run_polling()

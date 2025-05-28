@@ -551,6 +551,10 @@ async def test_expiry(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 app.add_handler(CommandHandler("testexpiry", test_expiry))
 
+from telegram.ext import ApplicationBuilder
+from telegram import BotCommand
+from telegram.ext import Application
+
 async def set_bot_commands(application):
     await application.bot.set_my_commands([
         BotCommand("start", "Start the bot"),

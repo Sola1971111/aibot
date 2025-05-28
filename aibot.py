@@ -258,7 +258,8 @@ async def handle_testimony_approval(update: Update, context: ContextTypes.DEFAUL
                 chat_id=CHANNEL_ID,
                 photo=row["file_id"],
                 caption=caption,
-                parse_mode="Markdown"
+                parse_mode="Markdown",
+                reply_markup=reply_markup
             )
         except Exception as e:
             print(f"❌ Failed to send to channel: {e}")

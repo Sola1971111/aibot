@@ -96,7 +96,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
      
     keyboard = [
         [InlineKeyboardButton("📢 Join Our Community", url="https://t.me/cooziepicksAI")],
-        [InlineKeyboardButton("💎 Get Premium Prediction", callback_data="subcription")],
+        [InlineKeyboardButton("💎 Get Premium Prediction", callback_data="subscription")],
         [InlineKeyboardButton("📸 Testimonies from Community", callback_data="view_testimonies")],
         [InlineKeyboardButton("🎯 Today’s Pick", callback_data="deposit_now")],
         [InlineKeyboardButton("🤖 AI Daily Picks", callback_data="get_vip")]
@@ -359,7 +359,7 @@ async def show_subscription_options(update: Update, context: ContextTypes.DEFAUL
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
-app.add_handler(CallbackQueryHandler(show_subscription_options, pattern="subcription"))
+app.add_handler(CallbackQueryHandler(show_subscription_options, pattern="subscription"))
 
 import requests
 import os
@@ -476,7 +476,7 @@ async def check_expiry(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "⚠️ Your VIP subscription has *expired*.\n"
                 "Click below to renew now."
             )
-            keyboard = [[InlineKeyboardButton("🔁 Renew Now", callback_data="show_subscription")]]
+            keyboard = [[InlineKeyboardButton("🔁 Renew Now", callback_data="subscription")]]
             await update.message.reply_text(msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
     else:
         msg = (

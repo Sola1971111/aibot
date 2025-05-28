@@ -391,14 +391,24 @@ async def show_subscription_options_p(update: Update, context: ContextTypes.DEFA
         if expires_at > now and (expires_at - now).days > 2:
             await update.message.reply_text("✅ You already have an active subscription.")
             return
+    caption = (
+        "🛡️ *VIP Subscriptions Available!*\n\n"
+        "Choose your plan below and enjoy:\n"
+        "✅ Daily expert football predictions\n"
+        "✅ Exclusive AI picks\n"
+        "✅ Direct access to our winning community"
+    )
 
     keyboard = [
         [InlineKeyboardButton("1 Month - ₦9500", callback_data="sub_100")],
         [InlineKeyboardButton("3 Months - ₦25000", callback_data="sub_250")],
         [InlineKeyboardButton("❌ Cancel", callback_data="cancel_deposit")]
     ]
-    await update.message.reply_text(
-        "💎 Choose a VIP Subscription Plan:",
+
+    await context.bot.send_photo(
+        photo="https://imgur.com/a/rJ4q3N3",  # Replace with your hosted image URL
+        caption=caption,
+        parse_mode="Markdown",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 

@@ -361,6 +361,36 @@ async def show_subscription_options(update: Update, context: ContextTypes.DEFAUL
 
 app.add_handler(CallbackQueryHandler(show_subscription_options, pattern="subscription"))
 
+
+async def show_subscription_options_p(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    user_id = query.from_user.id
+
+    # ✅ STEP 1: Check for active subscription
+    cursor.execute("SELECT expires_at FROM paid_predictions WHERE user_id = %s", (user_id,))
+    row = cursor.fetchone()
+
+    if row:
+        expires_at = row["expires_at"]
+        now = datetime.now()
+
+        if expires_at > now and (expires_at - now).days > 2:
+            await update.message.reply_text("✅ You already have an active subscription.")
+            return
+
+    keyboard = [
+        [InlineKeyboardButton("1 Month - ₦9500", callback_data="sub_100")],
+        [InlineKeyboardButton("3 Months - ₦25000", callback_data="sub_250")],
+        [InlineKeyboardButton("❌ Cancel", callback_data="cancel_deposit")]
+    ]
+    await update.message.reply_text(
+        "💎 Choose a VIP Subscription Plan:",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+
+app.add_handler(MessageHandler(filters.TEXT & filters.Regex("💎 Get Prediction"), show_subscription_options_p))
+
+
 import requests
 import os
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update

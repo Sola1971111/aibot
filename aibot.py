@@ -333,6 +333,22 @@ app.add_handler(MessageHandler(filters.Text("📸 Testimonies"), view_testimonie
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 async def show_subscription_options(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    user_id = query.from_user.id
+
+    # ✅ STEP 1: Check for active subscription
+    cursor.execute("SELECT expires_at FROM paid_predictions WHERE user_id = %s", (user_id,))
+    row = cursor.fetchone()
+
+    if row:
+        expires_at = row["expires_at"]
+        now = datetime.now()
+
+        if expires_at > now and (expires_at - now).days > 2:
+            await query.message.reply_text("✅ You already have an active subscription.")
+            return
+
     keyboard = [
         [InlineKeyboardButton("1 Month - ₦9500", callback_data="sub_100")],
         [InlineKeyboardButton("3 Months - ₦25000", callback_data="sub_250")],
@@ -467,11 +483,16 @@ async def check_expiry(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "❌ You don't have an active VIP subscription.\n"
             "Click below to subscribe and start receiving premium predictions."
         )
-        keyboard = [[InlineKeyboardButton("📥 Subscribe", callback_data="show_subscription")]]
+        keyboard = [[InlineKeyboardButton("📥 Subscribe", callback_data="subscription")]]
         await update.message.reply_text(msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
 
 # Register the command
 app.add_handler(CommandHandler("checkexpiry", check_expiry))
+
+async def test_expiry(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await check_sub_expiry(context)
+
+app.add_handler(CommandHandler("testexpiry", test_expiry))
 
 
 if __name__ == "__main__":

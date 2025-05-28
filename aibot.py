@@ -336,7 +336,7 @@ async def show_subscription_options(update: Update, context: ContextTypes.DEFAUL
     query = update.callback_query
     await query.answer()
     user_id = query.from_user.id
-    chat_id = update.message.chat_id
+    chat_id = update.effective_chat.id
 
     # ✅ STEP 1: Check for active subscription
     cursor.execute("SELECT expires_at FROM paid_predictions WHERE user_id = %s", (user_id,))

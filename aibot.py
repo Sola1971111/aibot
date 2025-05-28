@@ -434,5 +434,11 @@ async def check_sub_expiry(context):
 job_queue = app.job_queue
 job_queue.run_daily(check_sub_expiry, time=time(hour=8, minute=0))
 
+async def test_expiry(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await check_sub_expiry(context)
+
+app.add_handler(CommandHandler("testexpiry", test_expiry))
+
+
 if __name__ == "__main__":
     app.run_polling()

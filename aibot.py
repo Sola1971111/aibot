@@ -336,6 +336,7 @@ async def show_subscription_options(update: Update, context: ContextTypes.DEFAUL
     query = update.callback_query
     await query.answer()
     user_id = query.from_user.id
+    chat_id = update.message.chat_id
 
     # ✅ STEP 1: Check for active subscription
     cursor.execute("SELECT expires_at FROM paid_predictions WHERE user_id = %s", (user_id,))
@@ -348,14 +349,27 @@ async def show_subscription_options(update: Update, context: ContextTypes.DEFAUL
         if expires_at > now and (expires_at - now).days > 2:
             await query.message.reply_text("✅ You already have an active subscription.")
             return
+    
+    caption = (
+        "🛡️ *VIP Subscriptions Available!*\n\n"
+        "Choose your plan below and enjoy:\n"
+        "✅ Daily expert football predictions\n"
+        "✅ Exclusive AI picks\n"
+        "✅ Direct access to our winning community"
+    )
+
 
     keyboard = [
         [InlineKeyboardButton("1 Month - ₦9500", callback_data="sub_100")],
         [InlineKeyboardButton("3 Months - ₦25000", callback_data="sub_250")],
         [InlineKeyboardButton("❌ Cancel", callback_data="cancel_deposit")]
     ]
-    await update.callback_query.message.reply_text(
-        "💎 Choose a VIP Subscription Plan:",
+
+    await context.bot.send_photo(
+        chat_id=chat_id,
+        photo="https://imgur.com/a/rJ4q3N3",  # Replace with your hosted image URL
+        caption=caption,
+        parse_mode="Markdown",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 

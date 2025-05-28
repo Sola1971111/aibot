@@ -363,8 +363,8 @@ app.add_handler(CallbackQueryHandler(show_subscription_options, pattern="subscri
 
 
 async def show_subscription_options_p(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    user_id = query.from_user.id
+    user = update.effective_user
+    user_id = user.id
 
     # ✅ STEP 1: Check for active subscription
     cursor.execute("SELECT expires_at FROM paid_predictions WHERE user_id = %s", (user_id,))

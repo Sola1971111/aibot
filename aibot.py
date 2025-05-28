@@ -426,7 +426,7 @@ async def check_sub_expiry(context):
             ),
             parse_mode="Markdown",
             reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton("🔁 Renew Now", callback_data="subscribe")
+                InlineKeyboardButton("🔁 Renew Now", callback_data="subscription")
             ]])
         )
 
@@ -434,10 +434,43 @@ async def check_sub_expiry(context):
 job_queue = app.job_queue
 job_queue.run_daily(check_sub_expiry, time=time(hour=8, minute=0))
 
-async def test_expiry(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await check_sub_expiry(context)
+from datetime import datetime
+from telegram import InlineKeyboardMarkup, InlineKeyboardButton
+from telegram.ext import CommandHandler
 
-app.add_handler(CommandHandler("testexpiry", test_expiry))
+async def check_expiry(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+
+    cursor.execute("SELECT expires_at FROM paid_predictions WHERE user_id = %s", (user_id,))
+    result = cursor.fetchone()
+
+    if result and result["expires_at"]:
+        expires_at = result["expires_at"]
+        days_left = (expires_at.date() - datetime.now().date()).days
+
+        if days_left >= 0:
+            msg = (
+                f"✅ Your VIP subscription is active.\n"
+                f"Expires on *{expires_at.strftime('%Y-%m-%d')}* ({days_left} day(s) left)."
+            )
+            await update.message.reply_text(msg, parse_mode="Markdown")
+        else:
+            msg = (
+                "⚠️ Your VIP subscription has *expired*.\n"
+                "Click below to renew now."
+            )
+            keyboard = [[InlineKeyboardButton("🔁 Renew Now", callback_data="show_subscription")]]
+            await update.message.reply_text(msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+    else:
+        msg = (
+            "❌ You don't have an active VIP subscription.\n"
+            "Click below to subscribe and start receiving premium predictions."
+        )
+        keyboard = [[InlineKeyboardButton("📥 Subscribe", callback_data="show_subscription")]]
+        await update.message.reply_text(msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+
+# Register the command
+app.add_handler(CommandHandler("checkexpiry", check_expiry))
 
 
 if __name__ == "__main__":

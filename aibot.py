@@ -739,6 +739,11 @@ async def save_today_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if isinstance(result, Exception):
                 print(f"❌ Could not send to {user['user_id']}: {result}")
 
+        await context.bot.send_message(
+            chat_id=ADMIN_ID,  # Replace with your actual admin ID
+            text="✅ Today’s Pick has been sent to all VIP users and posted in the channel."
+        )
+
     except Exception as e:
         print(f"❌ Error fetching VIP users or sending photos: {e}")
 

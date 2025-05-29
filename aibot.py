@@ -141,7 +141,7 @@ async def won_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ You are not authorized to send this message.")
         return
 
-    message_text = "🎉 *Game WON!*\n\nIf you won, share your testimony below to inspire others!"
+    message_text = "🎉 *Today`s Game WON!*\n\nIf you won, share your testimony below to inspire others!"
     reply_markup = InlineKeyboardMarkup([
         [InlineKeyboardButton("📸 Upload Your Testimony", callback_data="upload_testimony")]
     ])
@@ -705,7 +705,7 @@ async def save_today_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         await context.bot.send_message(
             chat_id=CHANNEL_ID,
-            text="📢 *Today's Pick is ready!*\n\nClick below to view the game of the day!",
+            text="📢 *Today's Premium/Ai Pick is ready!*\n\nClick below to view the game of the day!",
             parse_mode="Markdown",
             reply_markup=InlineKeyboardMarkup([[
                 InlineKeyboardButton("🔍 View Today’s Pick", url=f"https://t.me/CoozieAibot")
@@ -724,10 +724,7 @@ async def save_today_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await context.bot.send_photo(
                     chat_id=user["user_id"],
                     photo=file_id,
-                    caption="🎯 Today's Pick is live! Tap below to view it again anytime.",
-                    reply_markup=InlineKeyboardMarkup([
-                        [InlineKeyboardButton("🔍 View Today's Pick", callback_data="view_pick")]
-                    ])
+                    caption="🎯 Today's Pick is live! Tap below to view it again anytime."
                 )
             except Exception as e:
                 print(f"❌ Could not send to {user['user_id']}: {e}")
@@ -800,8 +797,8 @@ async def set_bot_commands(application):
     await application.bot.set_my_commands([
         BotCommand("start", "Start the bot"),
         BotCommand("checkexpiry", "Check Sub Expiry date"),
-        BotCommand("dashboard", "View your Dashboard"),
-        BotCommand("setaccountdetails", "Fill your bank details"),
+        BotCommand("won", "View your Dashboard"),
+        BotCommand("upload", "Fill your bank details"),
         BotCommand("support", "Get help or contact admin"),
     ])
 

@@ -694,7 +694,7 @@ async def save_today_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # ✅ Save in database
     try:
-        cursor.execute("DELETE FROM daily_pick WHERE date < %s", (today,))
+        cursor.execute("DELETE FROM daily_pick WHERE date = %s", (today,))
         cursor.execute("INSERT INTO daily_pick (image_file_id, date) VALUES (%s, %s)", (file_id, today))
         conn.commit()
     except Exception as e:

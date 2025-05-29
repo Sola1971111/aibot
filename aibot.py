@@ -638,14 +638,39 @@ async def test_ai_post(update, context):
 app.add_handler(CommandHandler("testaipost", test_ai_post))
 
 
+from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
+from telegram.ext import ContextTypes
+
 async def upload_today_pick(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if user_id != ADMIN_ID:
         await update.message.reply_text("❌ You’re not allowed to upload picks.")
         return
 
-    await update.message.reply_text("📸 Send the image you want to set as today's pick.")
-    context.user_data["awaiting_upload"] = True
+    # Reply with a button, not immediately asking for the image
+    await update.message.reply_text(
+        "📝 Click the button below to upload today’s pick:",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("📎 Upload Now", callback_data="start_upload_pick")]
+        ])
+    )
+
+
+awaiting_upload = set()
+
+async def handle_upload_pick_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    user_id = query.from_user.id
+
+    if user_id != ADMIN_ID:
+        await query.message.reply_text("❌ You’re not allowed to upload.")
+        return
+
+    awaiting_upload.add(user_id)
+    await query.message.reply_text("📸 Now send the image you want to upload for today’s pick.")
+
+
 
 from datetime import date, datetime
 
@@ -742,7 +767,7 @@ app.add_handler(CommandHandler("upload", upload_today_pick))
 app.add_handler(MessageHandler(filters.PHOTO, save_today_image))
 app.add_handler(CallbackQueryHandler(handle_view_pick, pattern="view_pick"))
 app.add_handler(MessageHandler(filters.TEXT & filters.Regex("🎯 Today’s Pick"), handle_today_pick_button))
-
+app.add_handler(CallbackQueryHandler(handle_upload_pick_button, pattern="^start_upload_pick$"))
 
 from telegram.ext import ApplicationBuilder
 from telegram import BotCommand

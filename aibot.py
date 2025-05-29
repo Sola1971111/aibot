@@ -186,49 +186,6 @@ async def upload_testimony_prompt(update: Update, context: ContextTypes.DEFAULT_
 app.add_handler(CallbackQueryHandler(upload_testimony_prompt, pattern="^upload_testimony$"))
 
 
-from telegram.ext import MessageHandler, filters
-
-async def handle_uploaded_testimony(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-
-    # Check if the user is in upload mode
-    if not context.user_data.get(f"uploading_testimony_{user_id}"):
-        return  # Ignore if not part of upload flow
-
-    photo = update.message.photo[-1]
-    file_id = photo.file_id
-    caption = update.message.caption or ""
-    username = update.effective_user.username or ""
-
-    # Save to pending_testimonies
-    cursor.execute("""
-        INSERT INTO pending_testimonies (user_id, file_id, caption, username)
-        VALUES (%s, %s, %s, %s)
-    """, (user_id, file_id, caption, username))
-    conn.commit()
-
-    # Notify user
-    await update.message.reply_text("✅ Testimony submitted! Awaiting admin approval.")
-
-    # Notify admin
-    await context.bot.send_photo(
-        chat_id=ADMIN_ID,
-        photo=file_id,
-        caption=f"📝 *New Testimony Pending Approval*\nFrom: @{username}\n\nReview: {caption}",
-        parse_mode="Markdown",
-        reply_markup=InlineKeyboardMarkup([
-            [
-                InlineKeyboardButton("✅ Approve", callback_data=f"approve_testimony_{user_id}"),
-                InlineKeyboardButton("❌ Reject", callback_data=f"reject_testimony_{user_id}")
-            ]
-        ])
-    )
-
-    # Reset the flag
-    context.user_data[f"uploading_testimony_{user_id}"] = False
-
-# Register the photo handler
-app.add_handler(MessageHandler(filters.PHOTO, handle_uploaded_testimony))
 
 CHANNEL_ID = -1002565085815  # Replace with your actual channel ID
 

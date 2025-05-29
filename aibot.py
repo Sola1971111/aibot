@@ -769,9 +769,6 @@ async def handle_view_pick(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await query.message.reply_text("⚠️ No game has been uploaded yet today.")
 
-async def handle_today_pick_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await handle_view_pick(update, context)  # reuse the same logic
-
 
 async def handle_photos(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -786,8 +783,42 @@ app.add_handler(MessageHandler(filters.PHOTO, handle_photos))
 
 app.add_handler(CommandHandler("upload", upload_today_pick))
 app.add_handler(CallbackQueryHandler(handle_view_pick, pattern="view_pick"))
-app.add_handler(MessageHandler(filters.TEXT & filters.Regex("🎯 Today’s Pick"), handle_today_pick_button))
 app.add_handler(CallbackQueryHandler(handle_upload_pick_button, pattern="^start_upload_pick$"))
+
+async def handle_view_pick_p(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    user_id = user.id
+
+    # Check subscription
+    cursor.execute("SELECT expires_at FROM paid_predictions WHERE user_id = %s", (user_id,))
+    row = cursor.fetchone()
+    is_active = row and row["expires_at"] > datetime.now()
+
+    if not is_active:
+        await update.message.reply_text(
+            "❌ You don't have an active subscription.",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("💎 Subscribe Now", callback_data="subscription")]
+            ])
+        )
+        return
+
+    # Get today's pick
+    today = date.today()
+    cursor.execute("SELECT image_file_id FROM daily_pick WHERE date = %s", (today,))
+    row = cursor.fetchone()
+
+    if row:
+        await context.bot.send_photo(
+            chat_id=user_id,
+            photo=row["image_file_id"],
+            caption="🎯 Here's today's expert pick!"
+        )
+    else:
+        await update.message.reply_text("⚠️ No game has been uploaded yet today.")
+
+app.add_handler(MessageHandler(filters.TEXT & filters.Regex("🎯 Today’s Pick"), handle_view_pick_p))
+
 
 from telegram.ext import ApplicationBuilder
 from telegram import BotCommand

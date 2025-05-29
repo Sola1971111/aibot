@@ -586,7 +586,7 @@ async def generate_football_post():
         temperature=0.8,
         max_tokens=250
     )
-    return response["choices"][0]["message"]["content"].strip()
+    return response.choices[0].message.content.strip()
 
 # Function to generate football image
 async def generate_football_image():
@@ -595,7 +595,7 @@ async def generate_football_image():
         n=1,
         size="1024x1024"
     )
-    return dalle_response["data"][0]["url"]
+    return dalle_response.data[0].url
 
 async def post_football_content(context):
     try:

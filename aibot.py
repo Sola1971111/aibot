@@ -719,21 +719,25 @@ async def save_today_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
         cursor.execute("SELECT user_id FROM paid_predictions WHERE expires_at > NOW()")
         vip_users = cursor.fetchall()
 
+        tasks = []
+
         for user in vip_users:
-            try:
-                await context.bot.send_photo(
-                    chat_id=user["user_id"],
-                    photo=file_id,
-                    caption="🎯 Today's Pick is live! Tap below to view it again anytime."
-                )
-            except Exception as e:
-                print(f"❌ Could not send to {user['user_id']}: {e}")
+            user_id = user["user_id"]
 
-    except Exception as e:
-        print(f"❌ Error fetching VIP users: {e}")
+            task = context.bot.send_photo(
+                chat_id=user_id,
+                photo=file_id,
+                caption="🎯 Today's Pick is live!"
+            )
+            tasks.append(task)
 
-    # ✅ Confirm to admin
-    await update.message.reply_text("✅ Today's pick uploaded and sent to VIPs + channel.")
+        # Run all send_photo tasks concurrently
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+# Handle individual failures
+for user, result in zip(vip_users, results):
+    if isinstance(result, Exception):
+        print(f"❌ Could not send to {user['user_id']}: {result}")
 
 
 async def handle_view_pick(update: Update, context: ContextTypes.DEFAULT_TYPE):

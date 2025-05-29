@@ -650,7 +650,10 @@ async def upload_today_pick(update: Update, context: ContextTypes.DEFAULT_TYPE):
 from datetime import date, datetime
 
 async def save_today_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    print("image recieved")
+
     if not context.user_data.get("awaiting_upload"):
+        print("not awaiting")
         return
 
     today = date.today()

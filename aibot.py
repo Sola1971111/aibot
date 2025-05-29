@@ -551,6 +551,81 @@ async def test_expiry(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 app.add_handler(CommandHandler("testexpiry", test_expiry))
 
+
+import openai
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from datetime import time, datetime
+from telegram.constants import ParseMode
+
+# Replace with your actual values
+YOUR_BOT_USERNAME = "CoozieAibot"
+openai.api_key = "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"  # your OpenAI API key
+
+# Function to generate football content
+async def generate_football_post():
+    prompt = (
+        "Generate a short (100–150 word) football-themed content with random facts "
+        "about today's top football matches. Do NOT include predictions. "
+        "Make it exciting and informative — like pre-match buzz, stats, or fan trivia. "
+        "End with a neutral tone. Example topics: rivalries, form, past encounters, star players."
+    )
+
+    response = openai.ChatCompletion.create(
+        model="gpt-4",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.9
+    )
+    return response["choices"][0]["message"]["content"].strip()
+
+# Function to generate football image
+async def generate_football_image():
+    dalle_response = openai.Image.create(
+        prompt="exciting football match with fans, stadium lights, tension and action",
+        n=1,
+        size="1024x1024"
+    )
+    return dalle_response["data"][0]["url"]
+
+async def post_football_content(context):
+    try:
+        content = await generate_football_post()
+        image_url = await generate_football_image()
+
+        full_text = f"{content}\n\nSponsored by CooziePicks AI 🚀"
+
+        keyboard = InlineKeyboardMarkup([[
+            InlineKeyboardButton("⚽ Get AI Football Picks", url=f"https://t.me/{YOUR_BOT_USERNAME}")
+        ]])
+
+        await context.bot.send_photo(
+            chat_id=CHANNEL_ID,
+            photo=image_url,
+            caption=full_text,
+            parse_mode=ParseMode.MARKDOWN,
+            reply_markup=keyboard
+        )
+
+        print(f"✅ Posted football content at {datetime.now()}")
+    except Exception as e:
+        print(f"❌ Failed to post football content: {e}")
+
+
+from telegram.ext import ApplicationBuilder
+
+# Inside your bot startup logic
+job_queue.run_daily(post_football_content, time=time(hour=9, minute=0))   # Morning
+job_queue.run_daily(post_football_content, time=time(hour=14, minute=0))  # Afternoon
+job_queue.run_daily(post_football_content, time=time(hour=19, minute=0))  # Evening
+
+from telegram.ext import CommandHandler
+
+async def test_ai_post(update, context):
+    await post_football_content(context)
+    await update.message.reply_text("✅ Test AI content posted.")
+
+app.add_handler(CommandHandler("testaipost", test_ai_post))
+
+
 from telegram.ext import ApplicationBuilder
 from telegram import BotCommand
 from telegram.ext import Application

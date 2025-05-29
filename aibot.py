@@ -522,7 +522,7 @@ async def check_expiry(update: Update, context: ContextTypes.DEFAULT_TYPE):
         expires_at = result["expires_at"]
         days_left = (expires_at.date() - datetime.now().date()).days
 
-        if days_left >= 0:
+        if days_left > 0:
             msg = (
                 f"✅ Your VIP subscription is active.\n"
                 f"Expires on *{expires_at.strftime('%Y-%m-%d')}* ({days_left} day(s) left)."

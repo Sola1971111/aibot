@@ -734,10 +734,10 @@ async def save_today_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Run all send_photo tasks concurrently
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
-# Handle individual failures
-for user, result in zip(vip_users, results):
-    if isinstance(result, Exception):
-        print(f"❌ Could not send to {user['user_id']}: {result}")
+        # Handle individual failures
+        for user, result in zip(vip_users, results):
+            if isinstance(result, Exception):
+                print(f"❌ Could not send to {user['user_id']}: {result}")
 
 
 async def handle_view_pick(update: Update, context: ContextTypes.DEFAULT_TYPE):

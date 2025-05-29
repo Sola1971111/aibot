@@ -672,58 +672,72 @@ async def handle_upload_pick_button(update: Update, context: ContextTypes.DEFAUL
 
 
 
-from datetime import date, datetime
+from datetime import date
+awaiting_upload = set()  # make sure this is global
 
 async def save_today_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    print("image recieved")
+    user_id = update.effective_user.id
 
-    if not context.user_data.get("awaiting_upload"):
-        print("not awaiting")
+    # ⛔ Only proceed if admin and awaiting upload
+    if user_id != ADMIN_ID or user_id not in awaiting_upload:
+        return
+
+    awaiting_upload.remove(user_id)
+
+    # ✅ Get photo file_id
+    try:
+        file_id = update.message.photo[-1].file_id
+    except:
+        await update.message.reply_text("❌ Couldn't read the image. Try again.")
         return
 
     today = date.today()
 
-    # Delete previous picks
-    cursor.execute("DELETE FROM daily_pick WHERE date < %s", (today,))
+    # ✅ Save in database
+    try:
+        cursor.execute("DELETE FROM daily_pick WHERE date < %s", (today,))
+        cursor.execute("INSERT INTO daily_pick (image_file_id, date) VALUES (%s, %s)", (file_id, today))
+        conn.commit()
+    except Exception as e:
+        await update.message.reply_text(f"❌ DB error: {e}")
+        return
 
-    file_id = update.message.photo[-1].file_id
+    # ✅ Send to channel (text only)
+    try:
+        await context.bot.send_message(
+            chat_id=CHANNEL_ID,
+            text="📢 *Today's Pick is ready!*\n\nClick below to view the game of the day!",
+            parse_mode="Markdown",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("🔍 View Today’s Pick", url=f"https://t.me/CoozieAibot")
+            ]])
+        )
+    except Exception as e:
+        print(f"❌ Failed to send to channel: {e}")
 
-    cursor.execute("INSERT INTO daily_pick (image_file_id, date) VALUES (%s, %s)", (file_id, today))
-    conn.commit()
+    # ✅ Send to VIP users (with image)
+    try:
+        cursor.execute("SELECT user_id FROM paid_predictions WHERE expires_at > NOW()")
+        vip_users = cursor.fetchall()
 
-    context.user_data["awaiting_upload"] = False
+        for user in vip_users:
+            try:
+                await context.bot.send_photo(
+                    chat_id=user["user_id"],
+                    photo=file_id,
+                    caption="🎯 Today's Pick is live! Tap below to view it again anytime.",
+                    reply_markup=InlineKeyboardMarkup([
+                        [InlineKeyboardButton("🔍 View Today's Pick", callback_data="view_pick")]
+                    ])
+                )
+            except Exception as e:
+                print(f"❌ Could not send to {user['user_id']}: {e}")
 
-    # 1. Send to channel (text + inline button only)
-    await context.bot.send_message(
-        chat_id=CHANNEL_ID,  # replace with your channel ID
-        text="📢 *Today's Vip Pick is ready!*\n\nClick below to view the game of the day!",
-        parse_mode="Markdown",
-        reply_markup=InlineKeyboardMarkup([[
-            InlineKeyboardButton("🔍 View Today’s Pick", url=f"https://t.me/CoozieAibot")
-        ]])
-    )
+    except Exception as e:
+        print(f"❌ Error fetching VIP users: {e}")
 
-    # 2. Send to all subscribed users with image
-    cursor.execute("""
-        SELECT user_id FROM paid_predictions
-        WHERE expires_at > NOW()
-    """)
-    vip_users = cursor.fetchall()
-
-    for user in vip_users:
-        try:
-            await context.bot.send_photo(
-                chat_id=user["user_id"],
-                photo=file_id,
-                caption="🎯 Today's Pick is live! Tap below to view it again anytime.",
-                reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("🔍 View Today's Pick", callback_data="view_pick")]
-                ])
-            )
-        except Exception as e:
-            print(f"❌ Could not send to {user['user_id']}: {e}")
-
-    await update.message.reply_text("✅ Today's pick uploaded and published.")
+    # ✅ Confirm to admin
+    await update.message.reply_text("✅ Today's pick uploaded and sent to VIPs + channel.")
 
 
 async def handle_view_pick(update: Update, context: ContextTypes.DEFAULT_TYPE):

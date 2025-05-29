@@ -186,6 +186,48 @@ async def upload_testimony_prompt(update: Update, context: ContextTypes.DEFAULT_
 app.add_handler(CallbackQueryHandler(upload_testimony_prompt, pattern="^upload_testimony$"))
 
 
+from telegram.ext import MessageHandler, filters
+
+async def handle_uploaded_testimony(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+
+    # Check if the user is in upload mode
+    if not context.user_data.get(f"uploading_testimony_{user_id}"):
+        return  # Ignore if not part of upload flow
+
+    photo = update.message.photo[-1]
+    file_id = photo.file_id
+    caption = update.message.caption or ""
+    username = update.effective_user.username or ""
+
+    # Save to pending_testimonies
+    cursor.execute("""
+        INSERT INTO pending_testimonies (user_id, file_id, caption, username)
+        VALUES (%s, %s, %s, %s)
+    """, (user_id, file_id, caption, username))
+    conn.commit()
+
+    # Notify user
+    await update.message.reply_text("✅ Testimony submitted! Awaiting admin approval.")
+
+    # Notify admin
+    await context.bot.send_photo(
+        chat_id=ADMIN_ID,
+        photo=file_id,
+        caption=f"📝 *New Testimony Pending Approval*\nFrom: @{username}\n\nReview: {caption}",
+        parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("✅ Approve", callback_data=f"approve_testimony_{user_id}"),
+                InlineKeyboardButton("❌ Reject", callback_data=f"reject_testimony_{user_id}")
+            ]
+        ])
+    )
+
+    # Reset the flag
+    context.user_data[f"uploading_testimony_{user_id}"] = False
+
+
 
 CHANNEL_ID = -1002565085815  # Replace with your actual channel ID
 
@@ -300,6 +342,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 async def show_subscription_options(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
+    await query.answer()
     user_id = query.from_user.id
     chat_id = update.effective_chat.id
 
@@ -733,8 +776,18 @@ async def handle_today_pick_button(update: Update, context: ContextTypes.DEFAULT
     await handle_view_pick(update, context)  # reuse the same logic
 
 
+async def handle_photos(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+
+    if user_id in awaiting_upload:
+        await save_today_image(update, context)
+    elif context.user_data.get(f"uploading_testimony_{user_id}"):
+        await handle_uploaded_testimony(update, context)
+
+app.add_handler(MessageHandler(filters.PHOTO, handle_photos))
+
+
 app.add_handler(CommandHandler("upload", upload_today_pick))
-app.add_handler(MessageHandler(filters.PHOTO, save_today_image))
 app.add_handler(CallbackQueryHandler(handle_view_pick, pattern="view_pick"))
 app.add_handler(MessageHandler(filters.TEXT & filters.Regex("🎯 Today’s Pick"), handle_today_pick_button))
 app.add_handler(CallbackQueryHandler(handle_upload_pick_button, pattern="^start_upload_pick$"))

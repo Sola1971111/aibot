@@ -559,7 +559,7 @@ from telegram.constants import ParseMode
 
 # Replace with your actual values
 YOUR_BOT_USERNAME = "CoozieAibot"
-openai.api_key = "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"  # your OpenAI API key
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
 # Function to generate football content
 async def generate_football_post():

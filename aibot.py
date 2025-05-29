@@ -300,7 +300,6 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 async def show_subscription_options(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    await query.answer()
     user_id = query.from_user.id
     chat_id = update.effective_chat.id
 

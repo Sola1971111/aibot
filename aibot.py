@@ -82,6 +82,15 @@ cursor.execute("""
 """)
 conn.commit()
 
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS daily_pick (
+    id SERIAL PRIMARY KEY,
+    image_file_id TEXT,
+    date DATE
+)
+""")
+conn.commit()
+
 
 # Logging setup
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
@@ -98,7 +107,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("📢 Join Our Community", url="https://t.me/cooziepicksAI")],
         [InlineKeyboardButton("💎 Get Premium Prediction", callback_data="subscription")],
         [InlineKeyboardButton("📸 Testimonies from Community", callback_data="view_testimonies")],
-        [InlineKeyboardButton("🎯 Today’s Pick", callback_data="deposit_now")],
+        [InlineKeyboardButton("🎯 Today’s Pick", callback_data="view_pick")],
         [InlineKeyboardButton("🤖 AI Daily Picks", callback_data="get_vip")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -627,6 +636,109 @@ async def test_ai_post(update, context):
     await update.message.reply_text("✅ Test AI content posted.")
 
 app.add_handler(CommandHandler("testaipost", test_ai_post))
+
+
+async def upload_today_pick(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if user_id != ADMIN_ID:
+        await update.message.reply_text("❌ You’re not allowed to upload picks.")
+        return
+
+    await update.message.reply_text("📸 Send the image you want to set as today's pick.")
+    context.user_data["awaiting_upload"] = True
+
+from datetime import date, datetime
+
+async def save_today_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.user_data.get("awaiting_upload"):
+        return
+
+    today = date.today()
+
+    # Delete previous picks
+    cursor.execute("DELETE FROM daily_pick WHERE date < %s", (today,))
+
+    file_id = update.message.photo[-1].file_id
+
+    cursor.execute("INSERT INTO daily_pick (image_file_id, date) VALUES (%s, %s)", (file_id, today))
+    conn.commit()
+
+    context.user_data["awaiting_upload"] = False
+
+    # 1. Send to channel (text + inline button only)
+    await context.bot.send_message(
+        chat_id=CHANNEL_ID,  # replace with your channel ID
+        text="📢 *Today's Vip Pick is ready!*\n\nClick below to view the game of the day!",
+        parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup([[
+            InlineKeyboardButton("🔍 View Today’s Pick", url=f"https://t.me/CoozieAibot")
+        ]])
+    )
+
+    # 2. Send to all subscribed users with image
+    cursor.execute("""
+        SELECT user_id FROM paid_predictions
+        WHERE expires_at > NOW()
+    """)
+    vip_users = cursor.fetchall()
+
+    for user in vip_users:
+        try:
+            await context.bot.send_photo(
+                chat_id=user["user_id"],
+                photo=file_id,
+                caption="🎯 Today's Pick is live! Tap below to view it again anytime.",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("🔍 View Today's Pick", callback_data="view_pick")]
+                ])
+            )
+        except Exception as e:
+            print(f"❌ Could not send to {user['user_id']}: {e}")
+
+    await update.message.reply_text("✅ Today's pick uploaded and published.")
+
+
+async def handle_view_pick(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    user_id = query.from_user.id
+    await query.answer()
+
+    # Check subscription
+    cursor.execute("SELECT expires_at FROM paid_predictions WHERE user_id = %s", (user_id,))
+    row = cursor.fetchone()
+    is_active = row and row["expires_at"] > datetime.now()
+
+    if not is_active:
+        await query.message.reply_text(
+            "❌ You don't have an active subscription.",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("💎 Subscribe Now", callback_data="subscription")]
+            ])
+        )
+        return
+
+    # Get today's pick
+    today = date.today()
+    cursor.execute("SELECT image_file_id FROM daily_pick WHERE date = %s", (today,))
+    row = cursor.fetchone()
+
+    if row:
+        await context.bot.send_photo(
+            chat_id=user_id,
+            photo=row["image_file_id"],
+            caption="🎯 Here's today's expert pick!"
+        )
+    else:
+        await query.message.reply_text("⚠️ No game has been uploaded yet today.")
+
+async def handle_today_pick_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await handle_view_pick(update, context)  # reuse the same logic
+
+
+app.add_handler(CommandHandler("upload", upload_today_pick))
+app.add_handler(MessageHandler(filters.PHOTO, save_today_image))
+app.add_handler(CallbackQueryHandler(handle_view_pick, pattern="view_pick"))
+app.add_handler(MessageHandler(filters.TEXT & filters.Regex("🎯 Today’s Pick"), handle_today_pick_button))
 
 
 from telegram.ext import ApplicationBuilder

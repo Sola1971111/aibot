@@ -559,7 +559,9 @@ from telegram.constants import ParseMode
 
 # Replace with your actual values
 YOUR_BOT_USERNAME = "CoozieAibot"
-openai.api_key = os.getenv("OPENAI_API_KEY")
+import os
+from openai import OpenAI
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # Function to generate football content
 async def generate_football_post():
@@ -570,16 +572,17 @@ async def generate_football_post():
         "End with a neutral tone. Example topics: rivalries, form, past encounters, star players."
     )
 
-    response = openai.ChatCompletion.create(
+    response = client.chat.completions.create(
         model="gpt-4",
         messages=[{"role": "user", "content": prompt}],
-        temperature=0.9
+        temperature=0.8,
+        max_tokens=250
     )
     return response["choices"][0]["message"]["content"].strip()
 
 # Function to generate football image
 async def generate_football_image():
-    dalle_response = openai.Image.create(
+    dalle_response = client.images.generate(
         prompt="exciting football match with fans, stadium lights, tension and action",
         n=1,
         size="1024x1024"

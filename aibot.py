@@ -143,54 +143,49 @@ BOT_LINK = 'https://t.me/CoozieAibot'
 
 
 async def post_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_chat.id != ADMIN_ID:
-        await update.message.reply_text("❌ You are not authorized to send this message.")
-        return
-    
     user_id = update.effective_user.id
-    context.user_data[f"posting_prediction_{user_id}"] = {"stage": "awaiting_match"}
-    await update.message.reply_text("⚽ What match are you posting? (e.g. Arsenal vs Chelsea)")
-
+    context.user_data[f"posting_prediction_{user_id}"] = True
+    await update.message.reply_text(
+        "📥 Send your prediction in this format:\n\n"
+        "`Arsenal vs Chelsea`\n`Arsenal to win ✅`",
+        parse_mode="Markdown"
+    )
 
 async def handle_post_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     key = f"posting_prediction_{user_id}"
 
-    if key not in context.user_data:
-        return  # Ignore if not in posting flow, so other buttons work
+    if not context.user_data.get(key):
+        return  # Not in posting mode, ignore
 
-    stage_data = context.user_data[key]
-    stage = stage_data["stage"]
+    # Expecting two lines: match and prediction
+    lines = update.message.text.strip().split('\n')
 
-    if stage == "awaiting_match":
-        context.user_data[key]["match"] = update.message.text
-        context.user_data[key]["stage"] = "awaiting_prediction"
-        await update.message.reply_text("🔮 What's your prediction for this match?")
+    if len(lines) < 2:
+        await update.message.reply_text("⚠️ Please send the match and prediction on two separate lines.")
+        return
 
-    elif stage == "awaiting_prediction":
-        match = stage_data["match"]
-        prediction = update.message.text
+    match = lines[0].strip()
+    prediction = lines[1].strip()
 
-        caption = (
-            f"🏟️ *{match}*\n"
-            f"🔮 *Prediction:* {prediction}\n\n"
-            f"Sponsored by CooziePicks AI 🚀"
-        )
+    caption = (
+        f"🏟️ *{match}*\n"
+        f"🔮 *Prediction:* {prediction}\n\n"
+        f"Sponsored by CooziePicks AI 🚀"
+    )
 
-        keyboard = [[InlineKeyboardButton("🎯 Get AI Football Picks", url=BOT_LINK)]]
+    keyboard = [[InlineKeyboardButton("🎯 Get AI Football Picks", url=BOT_LINK)]]
 
-        await context.bot.send_photo(
-            chat_id=CHANNEL_ID,
-            photo=PREDEFINED_IMAGE_FILE_ID,
-            caption=caption,
-            parse_mode="Markdown",
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
+    await context.bot.send_photo(
+        chat_id=CHANNEL_ID,
+        photo=PREDEFINED_IMAGE_FILE_ID,
+        caption=caption,
+        parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
 
-        await update.message.reply_text("✅ Prediction posted to the channel!")
-
-        # Clear user post flow
-        context.user_data.pop(key)
+    await update.message.reply_text("✅ Prediction posted to the channel!")
+    context.user_data.pop(key)
 
 app.add_handler(CommandHandler("post", post_command))
 app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_post_input))

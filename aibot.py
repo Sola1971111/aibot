@@ -586,7 +586,7 @@ BOT_LINK = "https://t.me/your_bot_username"
 
 # --- Scrape upcoming today-only fixtures ---
 def get_today_upcoming_fixtures():
-    url = "https://www.sofascore.com/api/v1/sport/football/events/live"
+    url = "https://www.sofascore.com/api/v1/sport/football/events/schedule"
     headers = {"User-Agent": "Mozilla/5.0"}
     response = requests.get(url, headers=headers)
     

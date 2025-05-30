@@ -188,7 +188,6 @@ async def handle_post_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.pop(key)
 
 app.add_handler(CommandHandler("post", post_command))
-app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_post_input))
 
 
 import asyncio

@@ -151,21 +151,16 @@ async def post_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def handle_post_steps(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    key = f"posting_prediction_{user_id}"
-    data = context.user_data.get(key)
+    stage = context.user_data.get('post_stage')
 
-    if not data:
-        return  # not in posting flow, ignore so other handlers can work
-
-    if data["stage"] == "awaiting_match":
-        data["match"] = update.message.text
-        data["stage"] = "awaiting_prediction"
+    if stage == 'awaiting_match':
+        context.user_data['match'] = update.message.text
+        context.user_data['post_stage'] = 'awaiting_prediction'
         await update.message.reply_text("🔮 What’s your prediction for this match?")
-
-    elif data["stage"] == "awaiting_prediction":
+    
+    elif stage == 'awaiting_prediction':
         prediction = update.message.text
-        match = data.get("match")
+        match = context.user_data.get('match')
 
         caption = (
             f"🏟️ *{match}*\n"
@@ -186,7 +181,8 @@ async def handle_post_steps(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
         await update.message.reply_text("✅ Prediction posted to the channel!")
-        del context.user_data[key]
+        context.user_data.clear()
+
 
 
 

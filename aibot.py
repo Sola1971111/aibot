@@ -568,79 +568,115 @@ from telegram.constants import ParseMode
 # Replace with your actual values
 YOUR_BOT_USERNAME = "CoozieAibot"
 import os
-from openai import OpenAI
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# Function to generate football content
-async def generate_football_post():
+import requests
+from bs4 import BeautifulSoup
+from datetime import datetime
+import os
+import random
+from openai import AsyncOpenAI
+from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup
+import pytz
+
+# --- Setup ---
+client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+bot = Bot(token=os.getenv("BOT_TOKEN"))
+CHANNEL_ID = "@your_channel"  # Example: @cooziepicks
+BOT_LINK = "https://t.me/your_bot_username"
+
+
+# --- Scrape upcoming today-only fixtures ---
+def get_today_upcoming_fixtures():
+    url = "https://www.sofascore.com/football"
+    headers = {"User-Agent": "Mozilla/5.0"}
+
+    response = requests.get(url, headers=headers)
+    soup = BeautifulSoup(response.text, "lxml")
+
+    fixtures = []
+
+    now_utc = datetime.utcnow()
+
+    for event in soup.select("a[href*='/match/']"):
+        time_tag = event.find_previous("time")
+        teams = event.select("div.cell__content")
+
+        if time_tag and len(teams) >= 2:
+            team1 = teams[0].get_text(strip=True)
+            team2 = teams[1].get_text(strip=True)
+
+            timestamp = time_tag.get("data-timestamp")
+            if not timestamp:
+                continue
+
+            match_time = datetime.utcfromtimestamp(int(timestamp))
+
+            if match_time.date() == now_utc.date() and match_time > now_utc:
+                fixtures.append(f"{team1} vs {team2}")
+
+    return fixtures
+
+
+# --- Use GPT to generate AI tip ---
+async def get_ai_tip(match):
     prompt = (
-        "Check today’s real football fixtures and choose one match that has not started yet. "
-        "The match must NOT have started yet. Write the tip in a clear and professional tone.\n\n"
-        "Use this format:\n"
-        "*Match:* Team A vs Team B\n"
-        "*Prediction:* Your prediction ✅\n"
-        "(optional 1-line reason)\n\n"
-        "After the tip, end with a short line like:\n"
-        "For more AI-powered predictions, tap below 👇\n\n"
-        "Keep the full response under 50 words. Use clean formatting and 1–2 emojis only."
+        f"Here's a real football match happening today:\n\n"
+        f"Match: {match}\n"
+        f"Give a very short, professional tip (no score prediction). End the tip with a ✅.\n"
+        f"Then write: 'Want more AI-powered football picks? Tap below 👇'"
     )
 
-
-    response = client.chat.completions.create(
+    response = await client.chat.completions.create(
         model="gpt-4-turbo",
         messages=[{"role": "user", "content": prompt}],
-        temperature=0.8,
-        max_tokens=250
+        temperature=0.7,
     )
+
     return response.choices[0].message.content.strip()
 
-# Function to generate football image
-async def generate_football_image():
-    dalle_response = client.images.generate(
-        prompt="high-stakes football match in a modern stadium, dramatic lighting, passionate fans cheering, players in motion, grass flying, high-resolution, realistic style",
-        n=1,
-        size="1024x1024"
+
+# --- Send to Telegram Channel ---
+async def post_to_channel_with_tip():
+    fixtures = get_today_upcoming_fixtures()
+    if not fixtures:
+        print("❌ No upcoming matches found today.")
+        return
+
+    selected = random.choice(fixtures)
+    message = await get_ai_tip(selected)
+
+    await bot.send_message(
+        chat_id=CHANNEL_ID,
+        text=message + "\n\nSponsored by CooziePicks AI 🚀",
+        parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("🎯 Get AI Football Picks", url=BOT_LINK)]
+        ])
     )
-    return dalle_response.data[0].url
-
-async def post_football_content(context):
-    try:
-        content = await generate_football_post()
-        image_url = await generate_football_image()
-
-        full_text = f"{content}\n\nSponsored by CooziePicks AI 🚀"
-
-        keyboard = InlineKeyboardMarkup([[
-            InlineKeyboardButton("⚽ Get AI Football Picks", url=f"https://t.me/{YOUR_BOT_USERNAME}")
-        ]])
-
-        await context.bot.send_photo(
-            chat_id=CHANNEL_ID,
-            photo=image_url,
-            caption=full_text,
-            parse_mode=ParseMode.MARKDOWN,
-            reply_markup=keyboard
-        )
-
-        print(f"✅ Posted football content at {datetime.now()}")
-    except Exception as e:
-        print(f"❌ Failed to post football content: {e}")
-
-
-from telegram.ext import ApplicationBuilder
-
-# Inside your bot startup logic
-job_queue.run_daily(post_football_content, time=time(hour=9, minute=0))   # Morning
-job_queue.run_daily(post_football_content, time=time(hour=14, minute=0))  # Afternoon
-job_queue.run_daily(post_football_content, time=time(hour=19, minute=0))  # Evening
 
 from telegram.ext import CommandHandler
 
-async def test_ai_post(update, context):
-    await post_football_content(context)
-    await update.message.reply_text("✅ Test AI content posted.")
+async def testaipost(update, context):
+    fixtures = get_today_upcoming_fixtures()
+    if not fixtures:
+        await update.message.reply_text("❌ No upcoming matches found today.")
+        return
 
-app.add_handler(CommandHandler("testaipost", test_ai_post))
+    selected = random.choice(fixtures)
+    message = await get_ai_tip(selected)
+
+    await bot.send_message(
+        chat_id=CHANNEL_ID,
+        text=message + "\n\nSponsored by CooziePicks AI 🚀",
+        parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("🎯 Get AI Football Picks", url=BOT_LINK)]
+        ])
+    )
+
+    await update.message.reply_text("✅ AI post sent to the channel.")
+
+app.add_handler(CommandHandler("testaipost", testaipost))
 
 
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
@@ -835,6 +871,38 @@ async def handle_view_pick_p(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await update.message.reply_text("⚠️ No game has been uploaded yet today.")
 
 app.add_handler(MessageHandler(filters.TEXT & filters.Regex("🎯 Today’s Pick"), handle_view_pick_p))
+
+
+import requests
+from bs4 import BeautifulSoup
+from datetime import datetime
+
+def get_today_fixtures():
+    today = datetime.now().strftime("%Y-%m-%d")
+    url = "https://www.sofascore.com/football"  # Sofascore today’s matches
+
+    headers = {
+        "User-Agent": "Mozilla/5.0"
+    }
+
+    response = requests.get(url, headers=headers)
+    soup = BeautifulSoup(response.text, "lxml")
+
+    fixtures = []
+
+    for match in soup.select(".eventRow__mainRow"):
+        teams = match.select(".Cell__content")
+        if len(teams) >= 2:
+            team1 = teams[0].get_text(strip=True)
+            team2 = teams[1].get_text(strip=True)
+            fixtures.append(f"{team1} vs {team2}")
+
+    return fixtures
+
+# Example
+fixtures = get_today_fixtures()
+for match in fixtures:
+    print(match)
 
 
 from telegram.ext import ApplicationBuilder

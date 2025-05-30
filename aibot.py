@@ -113,17 +113,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = InlineKeyboardMarkup(keyboard)
 
 # Persistent keyboard
-    persistent_menu = [
-    [
-        InlineKeyboardButton("🏆 Today's Pick", callback_data="today_pick"),
-        InlineKeyboardButton("💡 AI Picks", callback_data="ai_pick")
-    ],
-    [
-        InlineKeyboardButton("💎 Get VIP", callback_data="get_vip"),
-        InlineKeyboardButton("🎁 Bonuses", callback_data="bonuses")
-    ]
-]
-
+    persistent_keyboard = ReplyKeyboardMarkup(
+        [["💎 Get Prediction", "📸 Testimonies"],
+         ["🤖 AI Picks", "🎯 Today’s Pick"]],
+        resize_keyboard=True, one_time_keyboard=False
+    )
 
     await update.message.reply_text(
         f"🔥 Welcome to CooziePicks! \n\nYour #1 home for ⚽ premium football predictions, 🤖 expert AI picks, and 📅 daily tips.🎯\n\nWhy thousands trust CooziePicks:\n• 💎 Access VIP football predictions \n• 🤖 Use AI to get smarter betting insights \n• 📈 Boost your wins with our expert-curated picks",
@@ -132,69 +126,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
         "Choose an Option",
-        reply_markup=persistent_menu
+        reply_markup=persistent_keyboard
     )
 
 app.add_handler(CommandHandler("start", start))
-
-from telegram import Update
-from telegram.ext import MessageHandler, filters, ContextTypes
-
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
-from telegram.ext import CommandHandler, MessageHandler, filters, ContextTypes
-
-# Set your channel ID and predefined image URL or file_id
-PREDEFINED_IMAGE_FILE_ID = 'AgACAgQAAyEFAASY5Bp3AAMcaDkeYisc3zH2YVzIwQNO2bYm5twAAo7LMRt3A8hRlATS4ye5b84BAAMCAAN4AAM2BA'
-BOT_LINK = 'https://t.me/CoozieAibot'
-
-
-async def post_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    context.user_data[f"posting_prediction_{user_id}"] = True
-    await update.message.reply_text(
-        "📥 Send your prediction in this format:\n\n"
-        "`Arsenal vs Chelsea`\n`Arsenal to win ✅`",
-        parse_mode="Markdown"
-    )
-
-async def handle_post_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    key = f"posting_prediction_{user_id}"
-
-    if not context.user_data.get(key):
-        return  # Not in posting mode, ignore
-
-    # Expecting two lines: match and prediction
-    lines = update.message.text.strip().split('\n')
-
-    if len(lines) < 2:
-        await update.message.reply_text("⚠️ Please send the match and prediction on two separate lines.")
-        return
-
-    match = lines[0].strip()
-    prediction = lines[1].strip()
-
-    caption = (
-        f"🏟️ *{match}*\n"
-        f"🔮 *Prediction:* {prediction}\n\n"
-        f"Sponsored by CooziePicks AI 🚀"
-    )
-
-    keyboard = [[InlineKeyboardButton("🎯 Get AI Football Picks", url=BOT_LINK)]]
-
-    await context.bot.send_photo(
-        chat_id=CHANNEL_ID,
-        photo=PREDEFINED_IMAGE_FILE_ID,
-        caption=caption,
-        parse_mode="Markdown",
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
-
-    await update.message.reply_text("✅ Prediction posted to the channel!")
-    context.user_data.pop(key)
-
-app.add_handler(CommandHandler("post", post_command))
-
 
 import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -625,6 +560,87 @@ async def test_expiry(update: Update, context: ContextTypes.DEFAULT_TYPE):
 app.add_handler(CommandHandler("testexpiry", test_expiry))
 
 
+import openai
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from datetime import time, datetime
+from telegram.constants import ParseMode
+
+# Replace with your actual values
+YOUR_BOT_USERNAME = "CoozieAibot"
+import os
+from openai import OpenAI
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+# Function to generate football content
+async def generate_football_post():
+    prompt = (
+        "Check today’s real football fixtures and choose one match that has not started yet. "
+        "The match must NOT have started yet. Write the tip in a clear and professional tone.\n\n"
+        "Use this format:\n"
+        "*Match:* Team A vs Team B\n"
+        "*Prediction:* Your prediction ✅\n"
+        "(optional 1-line reason)\n\n"
+        "After the tip, end with a short line like:\n"
+        "For more AI-powered predictions, tap below 👇\n\n"
+        "Keep the full response under 50 words. Use clean formatting and 1–2 emojis only."
+    )
+
+
+    response = client.chat.completions.create(
+        model="gpt-4-turbo",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.8,
+        max_tokens=250
+    )
+    return response.choices[0].message.content.strip()
+
+# Function to generate football image
+async def generate_football_image():
+    dalle_response = client.images.generate(
+        prompt="high-stakes football match in a modern stadium, dramatic lighting, passionate fans cheering, players in motion, grass flying, high-resolution, realistic style",
+        n=1,
+        size="1024x1024"
+    )
+    return dalle_response.data[0].url
+
+async def post_football_content(context):
+    try:
+        content = await generate_football_post()
+        image_url = await generate_football_image()
+
+        full_text = f"{content}\n\nSponsored by CooziePicks AI 🚀"
+
+        keyboard = InlineKeyboardMarkup([[
+            InlineKeyboardButton("⚽ Get AI Football Picks", url=f"https://t.me/{YOUR_BOT_USERNAME}")
+        ]])
+
+        await context.bot.send_photo(
+            chat_id=CHANNEL_ID,
+            photo=image_url,
+            caption=full_text,
+            parse_mode=ParseMode.MARKDOWN,
+            reply_markup=keyboard
+        )
+
+        print(f"✅ Posted football content at {datetime.now()}")
+    except Exception as e:
+        print(f"❌ Failed to post football content: {e}")
+
+
+from telegram.ext import ApplicationBuilder
+
+# Inside your bot startup logic
+job_queue.run_daily(post_football_content, time=time(hour=9, minute=0))   # Morning
+job_queue.run_daily(post_football_content, time=time(hour=14, minute=0))  # Afternoon
+job_queue.run_daily(post_football_content, time=time(hour=19, minute=0))  # Evening
+
+from telegram.ext import CommandHandler
+
+async def test_ai_post(update, context):
+    await post_football_content(context)
+    await update.message.reply_text("✅ Test AI content posted.")
+
+app.add_handler(CommandHandler("testaipost", test_ai_post))
 
 
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton

@@ -151,38 +151,43 @@ async def post_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def handle_post_steps(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if context.user_data.get('post_stage'):
-        stage = context.user_data['post_stage']
+    user_id = update.effective_user.id
+    key = f"posting_prediction_{user_id}"
+    data = context.user_data.get(key)
 
-        if stage == 'awaiting_match':
-            context.user_data['match'] = update.message.text
-            context.user_data['post_stage'] = 'awaiting_prediction'
-            await update.message.reply_text("🔮 What’s your prediction for this match?")
+    if not data:
+        return  # not in posting flow, ignore so other handlers can work
 
-        elif stage == 'awaiting_prediction':
-            prediction = update.message.text
-            match = context.user_data.get('match')
+    if data["stage"] == "awaiting_match":
+        data["match"] = update.message.text
+        data["stage"] = "awaiting_prediction"
+        await update.message.reply_text("🔮 What’s your prediction for this match?")
 
-            caption = (
-                f"🏟️ *{match}*\n"
-                f"🔮 *Prediction:* {prediction}\n\n"
-                f"Sponsored by CooziePicks AI 🚀"
-            )
+    elif data["stage"] == "awaiting_prediction":
+        prediction = update.message.text
+        match = data.get("match")
 
-            keyboard = [
-                [InlineKeyboardButton("🎯 Get AI Football Picks", url=BOT_LINK)]
-            ]
+        caption = (
+            f"🏟️ *{match}*\n"
+            f"🔮 *Prediction:* {prediction}\n\n"
+            f"Sponsored by CooziePicks AI 🚀"
+        )
 
-            await context.bot.send_photo(
-                chat_id=CHANNEL_ID,
-                photo=PREDEFINED_IMAGE_FILE_ID,
-                caption=caption,
-                parse_mode="Markdown",
-                reply_markup=InlineKeyboardMarkup(keyboard)
-            )
+        keyboard = [
+            [InlineKeyboardButton("🎯 Get AI Football Picks", url=BOT_LINK)]
+        ]
 
-            await update.message.reply_text("✅ Prediction posted to the channel!")
-            context.user_data.clear()
+        await context.bot.send_photo(
+            chat_id=CHANNEL_ID,
+            photo=PREDEFINED_IMAGE_FILE_ID,
+            caption=caption,
+            parse_mode="Markdown",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+
+        await update.message.reply_text("✅ Prediction posted to the channel!")
+        del context.user_data[key]
+
 
 
 app.add_handler(CommandHandler("post", post_command))

@@ -585,34 +585,25 @@ BOT_LINK = "https://t.me/your_bot_username"
 
 # --- Scrape upcoming today-only fixtures ---
 def get_today_upcoming_fixtures():
-    url = "https://www.sofascore.com/football"
+    url = "https://www.sofascore.com/api/v1/sport/football/events/live"
     headers = {"User-Agent": "Mozilla/5.0"}
-
     response = requests.get(url, headers=headers)
-    soup = BeautifulSoup(response.text, "lxml")
-
+    
+    events = response.json().get("events", [])
     fixtures = []
 
-    now_utc = datetime.utcnow()
+    now = datetime.now(timezone.utc)
 
-    for event in soup.select("a[href*='/match/']"):
-        time_tag = event.find_previous("time")
-        teams = event.select("div.cell__content")
+    for event in events:
+        start_timestamp = datetime.fromtimestamp(event["startTimestamp"], tz=timezone.utc)
+        
+        if start_timestamp.date() == now.date() and start_timestamp > now:
+            home = event["homeTeam"]["name"]
+            away = event["awayTeam"]["name"]
+            fixtures.append(f"{home} vs {away}")
 
-        if time_tag and len(teams) >= 2:
-            team1 = teams[0].get_text(strip=True)
-            team2 = teams[1].get_text(strip=True)
+    return fixtures  # ✅ Return variable is now consistently named
 
-            timestamp = time_tag.get("data-timestamp")
-            if not timestamp:
-                continue
-
-            match_time = datetime.utcfromtimestamp(int(timestamp))
-
-            if match_time.date() == now_utc.date() and match_time > now_utc:
-                fixtures.append(f"{team1} vs {team2}")
-
-    return fixtures
 
 
 # --- Use GPT to generate AI tip ---

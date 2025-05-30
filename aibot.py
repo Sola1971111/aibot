@@ -134,11 +134,53 @@ app.add_handler(CommandHandler("start", start))
 from telegram import Update
 from telegram.ext import MessageHandler, filters, ContextTypes
 
-async def get_file_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    photo = update.message.photo[-1]  # Get the highest resolution version
-    await update.message.reply_text(f"📎 File ID:\n`{photo.file_id}`", parse_mode="Markdown")
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram.ext import CommandHandler, MessageHandler, filters, ContextTypes
 
-app.add_handler(MessageHandler(filters.PHOTO, get_file_id))
+# Set your channel ID and predefined image URL or file_id
+PREDEFINED_IMAGE_FILE_ID = 'AgACAgQAAyEFAASY5Bp3AAMcaDkeYisc3zH2YVzIwQNO2bYm5twAAo7LMRt3A8hRlATS4ye5b84BAAMCAAN4AAM2BA'
+BOT_LINK = 'https://t.me/CoozieAibot'
+
+async def post_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data['post_stage'] = 'awaiting_match'
+    await update.message.reply_text("⚽ What match are you posting? (e.g. Arsenal vs Chelsea)")
+
+
+async def handle_post_steps(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    stage = context.user_data.get('post_stage')
+
+    if stage == 'awaiting_match':
+        context.user_data['match'] = update.message.text
+        context.user_data['post_stage'] = 'awaiting_prediction'
+        await update.message.reply_text("🔮 What’s your prediction for this match?")
+    
+    elif stage == 'awaiting_prediction':
+        prediction = update.message.text
+        match = context.user_data.get('match')
+
+        caption = (
+            f"🏟️ *{match}*\n"
+            f"🔮 *Prediction:* {prediction}\n\n"
+            f"Sponsored by CooziePicks AI 🚀"
+        )
+
+        keyboard = [
+            [InlineKeyboardButton("🎯 Get AI Football Picks", url=BOT_LINK)]
+        ]
+
+        await context.bot.send_photo(
+            chat_id=CHANNEL_ID,
+            photo=PREDEFINED_IMAGE_FILE_ID,
+            caption=caption,
+            parse_mode="Markdown",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+
+        await update.message.reply_text("✅ Prediction posted to the channel!")
+        context.user_data.clear()
+
+app.add_handler(CommandHandler("post", post_command))
+app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_post_steps))
 
 
 import asyncio

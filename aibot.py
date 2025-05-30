@@ -113,11 +113,17 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = InlineKeyboardMarkup(keyboard)
 
 # Persistent keyboard
-    persistent_keyboard = ReplyKeyboardMarkup(
-        [["💎 Get Prediction", "📸 Testimonies"],
-         ["🤖 AI Picks", "🎯 Today’s Pick"]],
-        resize_keyboard=True, one_time_keyboard=False
-    )
+    persistent_menu = [
+    [
+        InlineKeyboardButton("🏆 Today's Pick", callback_data="today_pick"),
+        InlineKeyboardButton("💡 AI Picks", callback_data="ai_pick")
+    ],
+    [
+        InlineKeyboardButton("💎 Get VIP", callback_data="get_vip"),
+        InlineKeyboardButton("🎁 Bonuses", callback_data="bonuses")
+    ]
+]
+
 
     await update.message.reply_text(
         f"🔥 Welcome to CooziePicks! \n\nYour #1 home for ⚽ premium football predictions, 🤖 expert AI picks, and 📅 daily tips.🎯\n\nWhy thousands trust CooziePicks:\n• 💎 Access VIP football predictions \n• 🤖 Use AI to get smarter betting insights \n• 📈 Boost your wins with our expert-curated picks",
@@ -126,7 +132,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
         "Choose an Option",
-        reply_markup=persistent_keyboard
+        reply_markup=persistent_menu
     )
 
 app.add_handler(CommandHandler("start", start))

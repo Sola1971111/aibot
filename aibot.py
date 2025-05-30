@@ -141,26 +141,29 @@ from telegram.ext import CommandHandler, MessageHandler, filters, ContextTypes
 PREDEFINED_IMAGE_FILE_ID = 'AgACAgQAAyEFAASY5Bp3AAMcaDkeYisc3zH2YVzIwQNO2bYm5twAAo7LMRt3A8hRlATS4ye5b84BAAMCAAN4AAM2BA'
 BOT_LINK = 'https://t.me/CoozieAibot'
 
+
 async def post_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.id != ADMIN_ID:
         await update.message.reply_text("❌ You are not authorized to send this message.")
         return
     
-    context.user_data['post_stage'] = 'awaiting_match'
+    user_id = update.effective_user.id
+    context.user_data["input_mode"] = "posting_match"
     await update.message.reply_text("⚽ What match are you posting? (e.g. Arsenal vs Chelsea)")
 
 
-async def handle_post_steps(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    stage = context.user_data.get('post_stage')
+async def handle_user_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    mode = context.user_data.get("input_mode")
 
-    if stage == 'awaiting_match':
-        context.user_data['match'] = update.message.text
-        context.user_data['post_stage'] = 'awaiting_prediction'
-        await update.message.reply_text("🔮 What’s your prediction for this match?")
-    
-    elif stage == 'awaiting_prediction':
+    if mode == "posting_match":
+        context.user_data["match_text"] = update.message.text
+        context.user_data["input_mode"] = "posting_prediction"
+        await update.message.reply_text("🔮 What's your prediction for this match?")
+
+    elif mode == "posting_prediction":
         prediction = update.message.text
-        match = context.user_data.get('match')
+        match = context.user_data.get("match_text")
 
         caption = (
             f"🏟️ *{match}*\n"
@@ -168,9 +171,7 @@ async def handle_post_steps(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"Sponsored by CooziePicks AI 🚀"
         )
 
-        keyboard = [
-            [InlineKeyboardButton("🎯 Get AI Football Picks", url=BOT_LINK)]
-        ]
+        keyboard = [[InlineKeyboardButton("🎯 Get AI Football Picks", url=BOT_LINK)]]
 
         await context.bot.send_photo(
             chat_id=CHANNEL_ID,
@@ -181,13 +182,15 @@ async def handle_post_steps(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
         await update.message.reply_text("✅ Prediction posted to the channel!")
-        context.user_data.clear()
+        context.user_data.pop("input_mode", None)
+        context.user_data.pop("match_text", None)
+
 
 
 
 
 app.add_handler(CommandHandler("post", post_command))
-app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_post_steps))
+app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_user_input))
 
 
 import asyncio

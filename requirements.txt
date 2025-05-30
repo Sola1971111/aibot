@@ -5,3 +5,5 @@ python-dotenv
 requests
 flask
 openai
+beautifulsoup4
+lxml

@@ -580,8 +580,6 @@ import pytz
 
 # --- Setup ---
 client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-bot = Bot(token=os.getenv("BOT_TOKEN"))
-CHANNEL_ID = "@your_channel"  # Example: @cooziepicks
 BOT_LINK = "https://t.me/your_bot_username"
 
 

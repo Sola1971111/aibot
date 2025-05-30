@@ -148,22 +148,28 @@ async def post_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     user_id = update.effective_user.id
-    context.user_data["input_mode"] = "posting_match"
+    context.user_data[f"posting_prediction_{user_id}"] = {"stage": "awaiting_match"}
     await update.message.reply_text("⚽ What match are you posting? (e.g. Arsenal vs Chelsea)")
 
 
-async def handle_user_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_post_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    mode = context.user_data.get("input_mode")
+    key = f"posting_prediction_{user_id}"
 
-    if mode == "posting_match":
-        context.user_data["match_text"] = update.message.text
-        context.user_data["input_mode"] = "posting_prediction"
+    if key not in context.user_data:
+        return  # Ignore if not in posting flow, so other buttons work
+
+    stage_data = context.user_data[key]
+    stage = stage_data["stage"]
+
+    if stage == "awaiting_match":
+        context.user_data[key]["match"] = update.message.text
+        context.user_data[key]["stage"] = "awaiting_prediction"
         await update.message.reply_text("🔮 What's your prediction for this match?")
 
-    elif mode == "posting_prediction":
+    elif stage == "awaiting_prediction":
+        match = stage_data["match"]
         prediction = update.message.text
-        match = context.user_data.get("match_text")
 
         caption = (
             f"🏟️ *{match}*\n"
@@ -182,15 +188,12 @@ async def handle_user_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
         await update.message.reply_text("✅ Prediction posted to the channel!")
-        context.user_data.pop("input_mode", None)
-        context.user_data.pop("match_text", None)
 
-
-
-
+        # Clear user post flow
+        context.user_data.pop(key)
 
 app.add_handler(CommandHandler("post", post_command))
-app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_user_input))
+app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_post_input))
 
 
 import asyncio

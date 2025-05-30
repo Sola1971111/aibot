@@ -577,6 +577,7 @@ import random
 from openai import AsyncOpenAI
 from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup
 import pytz
+from datetime import datetime, timezone
 
 # --- Setup ---
 client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))

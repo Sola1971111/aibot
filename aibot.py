@@ -587,7 +587,7 @@ async def generate_football_post():
 
 
     response = client.chat.completions.create(
-        model="gpt-3.5-turbo",
+        model="gpt-4-turbo",
         messages=[{"role": "user", "content": prompt}],
         temperature=0.8,
         max_tokens=250

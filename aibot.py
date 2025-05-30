@@ -574,11 +574,17 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 # Function to generate football content
 async def generate_football_post():
     prompt = (
-        "Generate a short (100–150 word) football-themed content with random facts "
-        "about today's top football matches. Do NOT include predictions. "
-        "Make it exciting and informative — like pre-match buzz, stats, or fan trivia. "
-        "End with a neutral tone. Example topics: rivalries, form, past encounters, star players."
+        "Generate one short football prediction for a real match happening later today. "
+        "The match must NOT have started yet. Write the tip in a clear and professional tone.\n\n"
+        "Use this format:\n"
+        "*Match:* Team A vs Team B\n"
+        "*Prediction:* Your prediction ✅\n"
+        "(optional 1-line reason)\n\n"
+        "After the tip, end with a short line like:\n"
+        "For more AI-powered predictions, tap below 👇\n\n"
+        "Keep the full response under 50 words. Use clean formatting and 1–2 emojis only."
     )
+
 
     response = client.chat.completions.create(
         model="gpt-3.5-turbo",
@@ -593,7 +599,7 @@ async def generate_football_image():
     dalle_response = client.images.generate(
         prompt="exciting football match with fans, stadium lights, tension and action",
         n=1,
-        size="1024x1024"
+        size="1024x512"
     )
     return dalle_response.data[0].url
 

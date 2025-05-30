@@ -574,7 +574,7 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 # Function to generate football content
 async def generate_football_post():
     prompt = (
-        "Generate one short football prediction for a real match happening later today. "
+        "Check today’s real football fixtures and choose one match that has not started yet. "
         "The match must NOT have started yet. Write the tip in a clear and professional tone.\n\n"
         "Use this format:\n"
         "*Match:* Team A vs Team B\n"
@@ -597,7 +597,7 @@ async def generate_football_post():
 # Function to generate football image
 async def generate_football_image():
     dalle_response = client.images.generate(
-        prompt="exciting football match with fans, stadium lights, tension and action",
+        prompt="high-stakes football match in a modern stadium, dramatic lighting, passionate fans cheering, players in motion, grass flying, high-resolution, realistic style",
         n=1,
         size="1024x1024"
     )

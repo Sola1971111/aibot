@@ -599,7 +599,7 @@ async def generate_football_image():
     dalle_response = client.images.generate(
         prompt="exciting football match with fans, stadium lights, tension and action",
         n=1,
-        size="1024x512"
+        size="1024x1024"
     )
     return dalle_response.data[0].url
 

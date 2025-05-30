@@ -131,6 +131,16 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 app.add_handler(CommandHandler("start", start))
 
+from telegram import Update
+from telegram.ext import MessageHandler, filters, ContextTypes
+
+async def get_file_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    photo = update.message.photo[-1]  # Get the highest resolution version
+    await update.message.reply_text(f"📎 File ID:\n`{photo.file_id}`", parse_mode="Markdown")
+
+app.add_handler(MessageHandler(filters.PHOTO, get_file_id))
+
+
 import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CommandHandler, ContextTypes
@@ -560,113 +570,6 @@ async def test_expiry(update: Update, context: ContextTypes.DEFAULT_TYPE):
 app.add_handler(CommandHandler("testexpiry", test_expiry))
 
 
-import openai
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-from datetime import time, datetime
-from telegram.constants import ParseMode
-
-# Replace with your actual values
-YOUR_BOT_USERNAME = "CoozieAibot"
-import os
-
-import requests
-from bs4 import BeautifulSoup
-from datetime import datetime
-import os
-import random
-from openai import AsyncOpenAI
-from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup
-import pytz
-from datetime import datetime, timezone
-
-# --- Setup ---
-client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-BOT_LINK = "https://t.me/your_bot_username"
-
-
-# --- Scrape upcoming today-only fixtures ---
-def get_today_upcoming_fixtures():
-    url = "https://www.sofascore.com/api/v1/sport/football/events/schedule"
-    headers = {"User-Agent": "Mozilla/5.0"}
-    response = requests.get(url, headers=headers)
-    
-    events = response.json().get("events", [])
-    fixtures = []
-
-    now = datetime.now(timezone.utc)
-
-    for event in events:
-        start_timestamp = datetime.fromtimestamp(event["startTimestamp"], tz=timezone.utc)
-        
-        if start_timestamp.date() == now.date() and start_timestamp > now:
-            home = event["homeTeam"]["name"]
-            away = event["awayTeam"]["name"]
-            fixtures.append(f"{home} vs {away}")
-
-    return fixtures  # ✅ Return variable is now consistently named
-
-
-
-# --- Use GPT to generate AI tip ---
-async def get_ai_tip(match):
-    prompt = (
-        f"Here's a real football match happening today:\n\n"
-        f"Match: {match}\n"
-        f"Give a very short, professional tip (no score prediction). End the tip with a ✅.\n"
-        f"Then write: 'Want more AI-powered football picks? Tap below 👇'"
-    )
-
-    response = await client.chat.completions.create(
-        model="gpt-4-turbo",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.7,
-    )
-
-    return response.choices[0].message.content.strip()
-
-
-# --- Send to Telegram Channel ---
-async def post_to_channel_with_tip():
-    fixtures = get_today_upcoming_fixtures()
-    if not fixtures:
-        print("❌ No upcoming matches found today.")
-        return
-
-    selected = random.choice(fixtures)
-    message = await get_ai_tip(selected)
-
-    await bot.send_message(
-        chat_id=CHANNEL_ID,
-        text=message + "\n\nSponsored by CooziePicks AI 🚀",
-        parse_mode="Markdown",
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("🎯 Get AI Football Picks", url=BOT_LINK)]
-        ])
-    )
-
-from telegram.ext import CommandHandler
-
-async def testaipost(update, context):
-    fixtures = get_today_upcoming_fixtures()
-    if not fixtures:
-        await update.message.reply_text("❌ No upcoming matches found today.")
-        return
-
-    selected = random.choice(fixtures)
-    message = await get_ai_tip(selected)
-
-    await bot.send_message(
-        chat_id=CHANNEL_ID,
-        text=message + "\n\nSponsored by CooziePicks AI 🚀",
-        parse_mode="Markdown",
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("🎯 Get AI Football Picks", url=BOT_LINK)]
-        ])
-    )
-
-    await update.message.reply_text("✅ AI post sent to the channel.")
-
-app.add_handler(CommandHandler("testaipost", testaipost))
 
 
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton

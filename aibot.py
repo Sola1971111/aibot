@@ -368,8 +368,8 @@ async def show_subscription_options(update: Update, context: ContextTypes.DEFAUL
 
 
     keyboard = [
-        [InlineKeyboardButton("1 Month - ₦9500", callback_data="sub_100")],
-        [InlineKeyboardButton("3 Months - ₦25000", callback_data="sub_250")],
+        [InlineKeyboardButton("1 Month - ₦9500", callback_data="sub_9500")],
+        [InlineKeyboardButton("3 Months - ₦25000", callback_data="sub_25000")],
         [InlineKeyboardButton("❌ Cancel", callback_data="cancel_deposit")]
     ]
 
@@ -411,7 +411,7 @@ async def show_subscription_options_p(update: Update, context: ContextTypes.DEFA
 
     keyboard = [
         [InlineKeyboardButton("1 Month - ₦9500", callback_data="sub_100")],
-        [InlineKeyboardButton("3 Months - ₦25000", callback_data="sub_250")],
+        [InlineKeyboardButton("3 Months - ₦25000", callback_data="sub_25000")],
         [InlineKeyboardButton("❌ Cancel", callback_data="cancel_deposit")]
     ]
     
@@ -626,8 +626,6 @@ from telegram.ext import ApplicationBuilder
 
 # Inside your bot startup logic
 job_queue.run_daily(post_football_content, time=time(hour=9, minute=0))   # Morning
-job_queue.run_daily(post_football_content, time=time(hour=14, minute=0))  # Afternoon
-job_queue.run_daily(post_football_content, time=time(hour=19, minute=0))  # Evening
 
 from telegram.ext import CommandHandler
 
@@ -753,19 +751,36 @@ async def handle_view_pick(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = query.from_user.id
     await query.answer()
 
-    # Check subscription
-    cursor.execute("SELECT expires_at FROM paid_predictions WHERE user_id = %s", (user_id,))
-    row = cursor.fetchone()
-    is_active = row and row["expires_at"] > datetime.now()
 
-    if not is_active:
-        await query.message.reply_text(
-            "❌ You don't have an active subscription.",
+    cursor.execute("""
+        SELECT expires_at FROM paid_predictions
+        WHERE user_id = %s
+        ORDER BY expires_at DESC
+        LIMIT 1
+    """, (user_id,))
+    row = cursor.fetchone()
+
+    if row:
+        expiry = row["expires_at"]
+        now = datetime.now()
+
+        if now > expiry:
+            await update.message.reply_text(
+                "⛔ Your subscription has expired.\n\nRenew to continue accessing daily picks.",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("🔁 Renew Now", callback_data="vip_renew")]
+                ])
+            )
+            return
+    else:
+        await update.message.reply_text(
+            "⛔ You don’t have an active subscription.",
             reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("💎 Subscribe Now", callback_data="subscription")]
+                [InlineKeyboardButton("🔁 Subscribe Now", callback_data="vip_renew")]
             ])
         )
         return
+
 
     # Get today's pick
     today = date.today()

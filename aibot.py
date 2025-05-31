@@ -574,14 +574,10 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 # Function to generate football content
 async def generate_football_post():
     prompt = (
-        "Toaday Football tips just two games "
-        "Use this format:\n"
-        "*Match:* Team A vs Team B\n"
-        "*Prediction:* Your prediction ✅\n"
-        "(optional 1-line reason)\n\n"
+        "write a short smart betting tup  for fottball bettors avoid predictions focus on strategy and discipline and add an emoji "
         "After the tip, end with a short line like:\n"
         "For more AI-powered predictions, tap below 👇\n\n"
-        "Keep the full response under 50 words. Use clean formatting and 1–2 emojis only."
+        "Keep the full response under 40 words. Use clean formatting and 1–2 emojis only."
     )
 
 

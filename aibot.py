@@ -574,8 +574,7 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 # Function to generate football content
 async def generate_football_post():
     prompt = (
-        "Check today’s real football fixtures and choose one match that has not started yet. "
-        "The match must NOT have started yet. Write the tip in a clear and professional tone.\n\n"
+        "Toaday Football tips just two games "
         "Use this format:\n"
         "*Match:* Team A vs Team B\n"
         "*Prediction:* Your prediction ✅\n"

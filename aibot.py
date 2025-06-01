@@ -751,15 +751,21 @@ async def handle_view_pick(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = query.from_user.id
     await query.answer()
 
-    cursor.execute("""
-        SELECT * FROM paid_predictions 
-        WHERE user_id = %s AND expires_at > NOW()
-    """, (user_id,))
+    cursor.execute("SELECT * FROM paid_predictions WHERE user_id = %s", (user_id,))
     row = cursor.fetchone()
 
     if not row:
+        # ❌ Not subscribed at all
+        await update.message.reply_text("❌ You're not subscribed. Please subscribe.")
+        return
+
+    expires_at = row["expires_at"]
+    now = datetime.now()
+
+    if now > expires_at:
+        # ❌ Subscription expired
         await update.message.reply_text(
-            "⛔ Your subscription has expired or doesn't exist.\n\nRenew to keep getting daily picks.",
+            "⛔ Your subscription has expired.\nPlease renew to continue.",
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("🔁 Subscribe Now", callback_data="vip_renew")]
             ])

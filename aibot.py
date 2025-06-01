@@ -761,7 +761,7 @@ async def handle_view_pick(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("🔁 Subscribe Now", callback_data="vip_renew")]
             ])
-         )
+        )
         return
 
 

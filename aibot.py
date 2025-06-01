@@ -755,6 +755,7 @@ async def handle_view_pick(update: Update, context: ContextTypes.DEFAULT_TYPE):
         SELECT * FROM paid_predictions 
         WHERE user_id = %s AND expires_at > NOW()
     """, (user_id,))
+    row = cursor.fetchone()
 
     if not row:
         await update.message.reply_text(

@@ -756,7 +756,8 @@ async def handle_view_pick(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # If not in table OR subscription has expired
     if not row or row["expires_at"] < datetime.now():
-        await update.message.reply_text(
+        message = update.message or update.callback_query.message
+        await message.reply_text(
             "⛔ You don't have an active subscription.\nPlease subscribe to access today's pick.",
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("🔁 Subscribe Now", callback_data="vip_renew")]

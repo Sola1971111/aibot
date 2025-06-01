@@ -411,7 +411,7 @@ async def show_subscription_options_p(update: Update, context: ContextTypes.DEFA
 
     keyboard = [
         [InlineKeyboardButton("1 Month - ₦9500", callback_data="sub_100")],
-        [InlineKeyboardButton("3 Months - ₦25000", callback_data="sub_25000")],
+        [InlineKeyboardButton("3 Months - ₦25000", callback_data="sub_250")],
         [InlineKeyboardButton("❌ Cancel", callback_data="cancel_deposit")]
     ]
     
@@ -751,7 +751,6 @@ async def handle_view_pick(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = query.from_user.id
     await query.answer()
 
-
     cursor.execute("""
         SELECT expires_at FROM paid_predictions
         WHERE user_id = %s
@@ -761,12 +760,9 @@ async def handle_view_pick(update: Update, context: ContextTypes.DEFAULT_TYPE):
     row = cursor.fetchone()
 
     if row:
-        expiry = row["expires_at"]
-        now = datetime.now()
-
-        if now > expiry:
+        if datetime.now() > row["expires_at"]:
             await update.message.reply_text(
-                "⛔ Your subscription has expired.\n\nRenew to continue accessing daily picks.",
+                "⛔ Your subscription has expired.\nRenew to continue accessing daily picks.",
                 reply_markup=InlineKeyboardMarkup([
                     [InlineKeyboardButton("🔁 Renew Now", callback_data="vip_renew")]
                 ])
@@ -774,9 +770,9 @@ async def handle_view_pick(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
     else:
         await update.message.reply_text(
-            "⛔ You don’t have an active subscription.",
+            "⛔ You don't have an active subscription.",
             reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("🔁 Subscribe Now", callback_data="vip_renew")]
+                [InlineKeyboardButton("🔁 Subscribe Now", callback_data="subscription")]
             ])
         )
         return

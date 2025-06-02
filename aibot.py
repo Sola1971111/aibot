@@ -788,17 +788,6 @@ async def handle_view_pick(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.reply_text("⚠️ No game has been uploaded yet today.")
 
 
-async def handle_photos(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-
-    if user_id in awaiting_upload:
-        await save_today_image(update, context)
-    elif user_id in awaiting_rollover:
-        await save_today_rollover(update, context)
-    elif context.user_data.get(f"uploading_testimony_{user_id}"):
-        await handle_uploaded_testimony(update, context)
-
-app.add_handler(MessageHandler(filters.PHOTO, handle_photos))
 
 
 app.add_handler(CommandHandler("upload", upload_today_pick))
@@ -988,6 +977,19 @@ async def handle_view_rollover_p(update: Update, context: ContextTypes.DEFAULT_T
         await update.message.reply_text("⚠️ No game has been uploaded yet today.")
 
 app.add_handler(MessageHandler(filters.TEXT & filters.Regex("🎯 2 Odds Rollover"), handle_view_rollover_p))
+
+
+async def handle_photos(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+
+    if user_id in awaiting_upload:
+        await save_today_image(update, context)
+    elif user_id in awaiting_rollover:
+        await save_today_rollover(update, context)
+    elif context.user_data.get(f"uploading_testimony_{user_id}"):
+        await handle_uploaded_testimony(update, context)
+
+app.add_handler(MessageHandler(filters.PHOTO, handle_photos))
 
 import requests
 from bs4 import BeautifulSoup

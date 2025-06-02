@@ -1074,7 +1074,7 @@ async def handle_discount(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     f"🔥 *Limited-Time Offer!*\n\n"
                     f"Subscribe for 1 month at just ₦6,500 (instead of ₦9,500).\n"
                     f"Offer expires in {minutes} days!\n\n"
-                    f"Don't miss out! 💼
+                    f"Don't miss out! 💼"
                 ),
                 parse_mode="Markdown",
                 reply_markup=InlineKeyboardMarkup([

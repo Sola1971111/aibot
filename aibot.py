@@ -1019,7 +1019,7 @@ async def handle_discount(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global discount_active_until
     discount_active_until = datetime.now() + timedelta(days=days)
 
-    cursor.execute("SELECT user_id FROM users")
+    cursor.execute("SELECT user_id FROM prediction_users")
     all_users = cursor.fetchall()
 
     async def send_discount(uid):

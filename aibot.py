@@ -793,7 +793,7 @@ async def handle_photos(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if user_id in awaiting_upload:
         await save_today_image(update, context)
-    if user_id in awaiting_rollover:
+    elif user_id in awaiting_rollover:
         await save_today_rollover(update, context)
     elif context.user_data.get(f"uploading_testimony_{user_id}"):
         await handle_uploaded_testimony(update, context)

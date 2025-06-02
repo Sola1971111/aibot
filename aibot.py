@@ -147,7 +147,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
      
     keyboard = [
-        [InlineKeyboardButton("📢 Join Our Community", url="https://t.me/cooziepicksAI")],
+        [InlineKeyboardButton("📢 Join Our Community", url="https://t.me/cooziepicks123")],
         [InlineKeyboardButton("💎 Get Premium Prediction", callback_data="subscription")],
         [InlineKeyboardButton("📸 Testimonies from Community", callback_data="view_testimonies")],
         [InlineKeyboardButton("🎯 Today’s Pick", callback_data="view_pick")],
@@ -1078,7 +1078,7 @@ async def handle_discount(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 ),
                 parse_mode="Markdown",
                 reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("💳 Pay ₦6,500 Now", callback_data="sub_200")]
+                    [InlineKeyboardButton("💳 Pay ₦6,500 Now", callback_data="sub_6500")]
                 ])
             )
         except:

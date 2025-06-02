@@ -910,6 +910,12 @@ async def save_today_rollover(update: Update, context: ContextTypes.DEFAULT_TYPE
     except Exception as e:
         print(f"❌ Failed to send to channel: {e}")
 
+        await context.bot.send_message(
+            chat_id=ADMIN_ID,  # Replace with your actual admin ID
+            text="✅ Today’s rollover has been sent to all VIP users and posted in the channel."
+        )
+
+
 async def handle_view_rollover(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
@@ -938,7 +944,7 @@ async def handle_view_rollover(update: Update, context: ContextTypes.DEFAULT_TYP
         await context.bot.send_photo(
             chat_id=user_id,
             photo=row["image_file_id"],
-            caption="🎯 Here's today's expert pick!"
+            caption="🎯 Here's today's rollover pick!"
         )
     else:
         await query.message.reply_text("⚠️ No game has been uploaded yet today.")
@@ -973,7 +979,7 @@ async def handle_view_rollover_p(update: Update, context: ContextTypes.DEFAULT_T
         await context.bot.send_photo(
             chat_id=user_id,
             photo=row["image_file_id"],
-            caption="🎯 Here's today's expert pick!"
+            caption="🎯 Here's today's rollover pick!"
         )
     else:
         await update.message.reply_text("⚠️ No game has been uploaded yet today.")

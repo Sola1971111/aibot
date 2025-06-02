@@ -103,6 +103,24 @@ conn.commit()
 # Logging setup
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 
+async def update_bot_description(context: ContextTypes.DEFAULT_TYPE):
+    """Updates the bot's profile description with the total user count from PostgreSQL."""
+    try:
+        cursor.execute("SELECT COUNT(*) FROM prediction_users")
+        result = cursor.fetchone()
+        total_users = result['count'] if result else 0
+
+        new_description = (
+            f"🌍 {total_users} users are using this bot!\n\n"
+            "Get AI/Expert predicted football picks"
+        )
+
+        await context.bot.set_my_description(new_description)
+        print(f"✅ Bot description updated: {new_description}")
+
+    except Exception as e:
+        print(f"❌ Failed to update bot description: {e}")
+
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.chat_id
@@ -110,9 +128,23 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = user_id
     first_name = user.first_name
      
-    # Save user to prediction_users if not already there
-    cursor.execute("INSERT INTO prediction_users (user_id) VALUES (%s) ON CONFLICT DO NOTHING", (user_id,))
-    conn.commit()
+    # ✅ Check if user already exists
+    cursor.execute("SELECT user_id FROM prediction_users WHERE user_id = %s", (user_id,))
+    existing_user = cursor.fetchone()
+
+    if not existing_user:
+        # 👤 Save new user
+        cursor.execute("INSERT INTO prediction_users (user_id) VALUES (%s)", (user_id,))
+        conn.commit()
+
+        # Update bot description with user count
+        await update_bot_description(context)
+
+        # 📢 Notify admin
+        await context.bot.send_message(
+            chat_id=ADMIN_ID,
+            text=f"📥 New user started the bot:\n👤 {first_name}\n🆔 {user_id}"
+        )
      
     keyboard = [
         [InlineKeyboardButton("📢 Join Our Community", url="https://t.me/cooziepicksAI")],
@@ -143,23 +175,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 app.add_handler(CommandHandler("start", start))
 
 
-async def update_bot_description(context: ContextTypes.DEFAULT_TYPE):
-    """Updates the bot's profile description with the total user count from PostgreSQL."""
-    try:
-        cursor.execute("SELECT COUNT(*) FROM prediction_users")
-        result = cursor.fetchone()
-        total_users = result['count'] if result else 0
-
-        new_description = (
-            f"🌍 {total_users} users are using this bot!\n\n"
-            "Get AI/Expert predicted football picks"
-        )
-
-        await context.bot.set_my_description(new_description)
-        print(f"✅ Bot description updated: {new_description}")
-
-    except Exception as e:
-        print(f"❌ Failed to update bot description: {e}")
 
 import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup

@@ -1049,12 +1049,12 @@ async def handle_discount(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return await update.message.reply_text("⛔ You're not authorized to send discounts.")
 
     try:
-        days = int(update.message.text.split("|")[1])
+        minutes = int(update.message.text.split("|")[1])
     except (IndexError, ValueError):
         return await update.message.reply_text("❌ Invalid format. Use: /discount|30")
 
     global discount_active_until
-    discount_active_until = datetime.now() + timedelta(days=days)
+    discount_active_until = datetime.now() + timedelta(minutes=minutes)
 
     cursor.execute("SELECT user_id FROM prediction_users")
     all_users = cursor.fetchall()
@@ -1073,8 +1073,8 @@ async def handle_discount(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 caption=(
                     f"🔥 *Limited-Time Offer!*\n\n"
                     f"Subscribe for 1 month at just ₦6,500 (instead of ₦9,500).\n"
-                    f"Offer expires in {days} days!\n\n"
-                    f"Don't miss out! 💼"
+                    f"Offer expires in {minutes} days!\n\n"
+                    f"Don't miss out! 💼
                 ),
                 parse_mode="Markdown",
                 reply_markup=InlineKeyboardMarkup([

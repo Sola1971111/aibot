@@ -116,14 +116,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("💎 Get Premium Prediction", callback_data="subscription")],
         [InlineKeyboardButton("📸 Testimonies from Community", callback_data="view_testimonies")],
         [InlineKeyboardButton("🎯 Today’s Pick", callback_data="view_pick")],
-        [InlineKeyboardButton("🎯 2 Odds Rollover", callback_data="view_rollover")]
+        [InlineKeyboardButton("📈 2 Odds Rollover", callback_data="view_rollover")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
 # Persistent keyboard
     persistent_keyboard = ReplyKeyboardMarkup(
         [["💎 Get Prediction", "📸 Testimonies"],
-         ["🎯 2 Odds Rollover", "🎯 Today’s Pick"]],
+         ["📈 2 Odds Rollover", "🎯 Today’s Pick"]],
         resize_keyboard=True, one_time_keyboard=False
     )
 
@@ -984,7 +984,7 @@ async def handle_view_rollover_p(update: Update, context: ContextTypes.DEFAULT_T
     else:
         await update.message.reply_text("⚠️ No game has been uploaded yet today.")
 
-app.add_handler(MessageHandler(filters.TEXT & filters.Regex("🎯 2 Odds Rollover"), handle_view_rollover_p))
+app.add_handler(MessageHandler(filters.TEXT & filters.Regex("📈 2 Odds Rollover"), handle_view_rollover_p))
 
 
 async def handle_photos(update: Update, context: ContextTypes.DEFAULT_TYPE):

@@ -106,7 +106,10 @@ logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.chat_id
-
+    user = update.effective_user
+    user_id = user_id
+    first_name = user.first_name
+     
     # Save user to prediction_users if not already there
     cursor.execute("INSERT INTO prediction_users (user_id) VALUES (%s) ON CONFLICT DO NOTHING", (user_id,))
     conn.commit()
@@ -138,6 +141,25 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 app.add_handler(CommandHandler("start", start))
+
+
+async def update_bot_description(context: ContextTypes.DEFAULT_TYPE):
+    """Updates the bot's profile description with the total user count from PostgreSQL."""
+    try:
+        cursor.execute("SELECT COUNT(*) FROM prediction_users")
+        result = cursor.fetchone()
+        total_users = result['count'] if result else 0
+
+        new_description = (
+            f"🌍 {total_users} users are using this bot!\n\n"
+            "Get AI/Expert predicted football picks"
+        )
+
+        await context.bot.set_my_description(new_description)
+        print(f"✅ Bot description updated: {new_description}")
+
+    except Exception as e:
+        print(f"❌ Failed to update bot description: {e}")
 
 import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -457,7 +479,7 @@ async def handle_subscription_payment(update: Update, context: ContextTypes.DEFA
     payload = {
         "email": email,
         "amount": plan * 100,
-        "callback_url": "https://yourdomain.com/predictions/webhook",  # or your deployed webhook URL
+        "callback_url": "https://cooziepicks.com/thank-you/",  # or your deployed webhook URL
         "metadata": {
             "user_id": user_id,
             "plan": plan,
@@ -1041,7 +1063,7 @@ async def handle_discount(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 ),
                 parse_mode="Markdown",
                 reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("💳 Pay ₦6,500 Now", callback_data="sub_6500")]
+                    [InlineKeyboardButton("💳 Pay ₦6,500 Now", callback_data="sub_200")]
                 ])
             )
         except:
@@ -1071,6 +1093,16 @@ async def support(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Register the command with your bot application
 app.add_handler(CommandHandler("support", support))
+
+async def user_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    cursor.execute("SELECT COUNT(*) AS count FROM predictions_users")
+    result = cursor.fetchone()
+    total_users = result["count"] if result else 0
+
+    await update.message.reply_text(f"📊 Total Users: {total_users}")
+
+app.add_handler(CommandHandler("usercount", user_count))
+
 
 from telegram.ext import ApplicationBuilder
 from telegram import BotCommand

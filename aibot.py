@@ -1041,7 +1041,7 @@ async def handle_discount(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 ),
                 parse_mode="Markdown",
                 reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("💳 Pay ₦6,500 Now", callback_data="sub_200")]
+                    [InlineKeyboardButton("💳 Pay ₦6,500 Now", callback_data="sub_6500")]
                 ])
             )
         except:

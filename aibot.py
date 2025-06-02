@@ -984,8 +984,8 @@ app.add_handler(MessageHandler(filters.TEXT & filters.Regex("🎯 2 Odds Rollove
 async def handle_photos(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
 
-    if user_id in awaiting_rollover:
-        await save_today_rollover(update, context)
+    if user_id in awaiting_upload:
+        await save_today_image(update, context)
     elif context.user_data.get(f"uploading_testimony_{user_id}"):
         await handle_uploaded_testimony(update, context)
 

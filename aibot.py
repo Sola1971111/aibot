@@ -1027,7 +1027,7 @@ async def handle_discount(update: Update, context: ContextTypes.DEFAULT_TYPE):
         cursor.execute("SELECT expires_at FROM paid_predictions WHERE user_id = %s", (uid,))
         sub = cursor.fetchone()
         if sub and sub["expires_at"] > datetime.now():
-            await query.message.reply_text("✅ You already have an active subscription.")
+            await update.message.reply_text("✅ You already have an active subscription.")
             return  # User already has an active sub
 
         try:
@@ -1057,6 +1057,22 @@ async def handle_discount(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # Register the handler
 app.add_handler(MessageHandler(filters.TEXT & filters.Regex(r"^/discount\|"), handle_discount))
 
+
+# Support message text
+SUPPORT_MESSAGE = (
+    "🛠 *Need Help?*\n\n"
+    "If you're experiencing issues or need assistance:\n\n"
+    "💬 Contact our admin: @cooziepicks\n"
+    "We're here to help you enjoy the platform!"
+)
+
+# Support command handler function
+async def support(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(SUPPORT_MESSAGE, parse_mode="Markdown")
+
+# Register the command with your bot application
+app.add_handler(CommandHandler("support", support))
+
 from telegram.ext import ApplicationBuilder
 from telegram import BotCommand
 from telegram.ext import Application
@@ -1065,8 +1081,6 @@ async def set_bot_commands(application):
     await application.bot.set_my_commands([
         BotCommand("start", "Start the bot"),
         BotCommand("checkexpiry", "Check Sub Expiry date"),
-        BotCommand("won", "View your Dashboard"),
-        BotCommand("upload", "Fill your bank details"),
         BotCommand("support", "Get help or contact admin"),
     ])
 

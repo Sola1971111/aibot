@@ -874,7 +874,7 @@ async def save_today_rollover(update: Update, context: ContextTypes.DEFAULT_TYPE
     user_id = update.effective_user.id
 
     # ⛔ Only proceed if admin and awaiting upload
-    if user_id != ADMIN_ID or user_id not in awaiting_upload:
+    if user_id != ADMIN_ID or user_id not in awaiting_rollover:
         return
 
     awaiting_rollover.remove(user_id)
@@ -986,6 +986,8 @@ async def handle_photos(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if user_id in awaiting_upload:
         await save_today_image(update, context)
+    if user_id in awaiting_rollover:
+        await save_today_rollover(update, context)
     elif context.user_data.get(f"uploading_testimony_{user_id}"):
         await handle_uploaded_testimony(update, context)
 

@@ -274,7 +274,7 @@ async def handle_uploaded_testimony(update: Update, context: ContextTypes.DEFAUL
 
 
 
-CHANNEL_ID = -1002565085815  # Replace with your actual channel ID
+CHANNEL_ID = -1002182147196  # Replace with your actual channel ID
 
 
 async def handle_testimony_approval(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1049,12 +1049,12 @@ async def handle_discount(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return await update.message.reply_text("⛔ You're not authorized to send discounts.")
 
     try:
-        minutes = int(update.message.text.split("|")[1])
+        days = int(update.message.text.split("|")[1])
     except (IndexError, ValueError):
         return await update.message.reply_text("❌ Invalid format. Use: /discount|30")
 
     global discount_active_until
-    discount_active_until = datetime.now() + timedelta(minutes=minutes)
+    discount_active_until = datetime.now() + timedelta(days=days)
 
     cursor.execute("SELECT user_id FROM prediction_users")
     all_users = cursor.fetchall()
@@ -1073,7 +1073,7 @@ async def handle_discount(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 caption=(
                     f"🔥 *Limited-Time Offer!*\n\n"
                     f"Subscribe for 1 month at just ₦6,500 (instead of ₦9,500).\n"
-                    f"Offer expires in {minutes} days!\n\n"
+                    f"Offer expires in {days} days!\n\n"
                     f"Don't miss out! 💼"
                 ),
                 parse_mode="Markdown",

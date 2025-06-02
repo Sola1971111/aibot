@@ -418,8 +418,8 @@ async def show_subscription_options_p(update: Update, context: ContextTypes.DEFA
     )
 
     keyboard = [
-        [InlineKeyboardButton("1 Month - ₦9500", callback_data="sub_100")],
-        [InlineKeyboardButton("3 Months - ₦25000", callback_data="sub_250")],
+        [InlineKeyboardButton("1 Month - ₦9500", callback_data="sub_9500")],
+        [InlineKeyboardButton("3 Months - ₦25000", callback_data="sub_25000")],
         [InlineKeyboardButton("❌ Cancel", callback_data="cancel_deposit")]
     ]
     
@@ -446,7 +446,7 @@ async def handle_subscription_payment(update: Update, context: ContextTypes.DEFA
     plan = int(query.data.split("_")[1])
 
     # Map plan amount to duration
-    duration = 30 if plan == 100 else 90 if plan == 250 else 30
+    duration = 30 if plan == 9500 else 90 if plan == 25000 else 30
 
     email = f"user_{user_id}@cooziepicks.com"
     headers = {
@@ -999,37 +999,62 @@ async def handle_photos(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 app.add_handler(MessageHandler(filters.PHOTO, handle_photos))
 
-import requests
-from bs4 import BeautifulSoup
-from datetime import datetime
+import asyncio
+from datetime import datetime, timedelta
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram.ext import ContextTypes, MessageHandler, filters
 
-def get_today_fixtures():
-    today = datetime.now().strftime("%Y-%m-%d")
-    url = "https://www.sofascore.com/football"  # Sofascore today’s matches
+discount_active_until = None  # Global tracker
 
-    headers = {
-        "User-Agent": "Mozilla/5.0"
-    }
+async def handle_discount(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if user_id != ADMIN_ID:
+        return await update.message.reply_text("⛔ You're not authorized to send discounts.")
 
-    response = requests.get(url, headers=headers)
-    soup = BeautifulSoup(response.text, "lxml")
+    try:
+        days = int(update.message.text.split("|")[1])
+    except (IndexError, ValueError):
+        return await update.message.reply_text("❌ Invalid format. Use: /discount|30")
 
-    fixtures = []
+    global discount_active_until
+    discount_active_until = datetime.now() + timedelta(days=days)
 
-    for match in soup.select(".eventRow__mainRow"):
-        teams = match.select(".Cell__content")
-        if len(teams) >= 2:
-            team1 = teams[0].get_text(strip=True)
-            team2 = teams[1].get_text(strip=True)
-            fixtures.append(f"{team1} vs {team2}")
+    cursor.execute("SELECT user_id FROM users")
+    all_users = cursor.fetchall()
 
-    return fixtures
+    async def send_discount(uid):
+        # Check VIP status
+        cursor.execute("SELECT expires_at FROM paid_predictions WHERE user_id = %s", (uid,))
+        sub = cursor.fetchone()
+        if sub and sub["expires_at"] > datetime.now():
+            return  # User already has an active sub
 
-# Example
-fixtures = get_today_fixtures()
-for match in fixtures:
-    print(match)
+        try:
+            await context.bot.send_photo(
+                chat_id=uid,
+                photo="https://imgur.com/a/rJ4q3N3",  # Replace with real file ID
+                caption=(
+                    f"🔥 *Limited-Time Offer!*\n\n"
+                    f"Subscribe for 1 month at just ₦6,500 (instead of ₦9,500).\n"
+                    f"Offer expires in {days} days!\n\n"
+                    f"Don't miss out! 💼"
+                ),
+                parse_mode="Markdown",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("💳 Pay ₦6,500 Now", callback_data="sub_200")]
+                ])
+            )
+        except:
+            pass
 
+    # Run all send tasks in parallel
+    tasks = [asyncio.create_task(send_discount(row["user_id"])) for row in all_users]
+    await asyncio.gather(*tasks)
+
+    await update.message.reply_text("✅ Discount broadcast sent to all non-VIP users.")
+
+# Register the handler
+app.add_handler(MessageHandler(filters.TEXT & filters.Regex(r"^/discount\|"), handle_discount))
 
 from telegram.ext import ApplicationBuilder
 from telegram import BotCommand

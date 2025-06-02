@@ -1027,7 +1027,6 @@ async def handle_discount(update: Update, context: ContextTypes.DEFAULT_TYPE):
         cursor.execute("SELECT expires_at FROM paid_predictions WHERE user_id = %s", (uid,))
         sub = cursor.fetchone()
         if sub and sub["expires_at"] > datetime.now():
-            await update.message.reply_text("✅ You already have an active subscription.")
             return  # User already has an active sub
 
         try:

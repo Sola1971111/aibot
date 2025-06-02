@@ -1095,7 +1095,7 @@ async def support(update: Update, context: ContextTypes.DEFAULT_TYPE):
 app.add_handler(CommandHandler("support", support))
 
 async def user_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    cursor.execute("SELECT COUNT(*) AS count FROM predictions_users")
+    cursor.execute("SELECT COUNT(*) AS count FROM prediction_users")
     result = cursor.fetchone()
     total_users = result["count"] if result else 0
 

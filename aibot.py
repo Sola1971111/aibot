@@ -663,6 +663,8 @@ async def upload_today_pick(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 awaiting_upload = set()
+awaiting_rollover = set()
+
 
 async def handle_upload_pick_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -982,9 +984,7 @@ app.add_handler(MessageHandler(filters.TEXT & filters.Regex("🎯 2 Odds Rollove
 async def handle_photos(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
 
-    if user_id in awaiting_upload:
-        await save_today_image(update, context)
-    elif user_id in awaiting_rollover:
+    if user_id in awaiting_rollover:
         await save_today_rollover(update, context)
     elif context.user_data.get(f"uploading_testimony_{user_id}"):
         await handle_uploaded_testimony(update, context)

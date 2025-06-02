@@ -91,6 +91,14 @@ CREATE TABLE IF NOT EXISTS daily_pick (
 """)
 conn.commit()
 
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS rollover (
+    id SERIAL PRIMARY KEY,
+    image_file_id TEXT,
+    date DATE
+)
+""")
+conn.commit()
 
 # Logging setup
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
@@ -108,14 +116,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("💎 Get Premium Prediction", callback_data="subscription")],
         [InlineKeyboardButton("📸 Testimonies from Community", callback_data="view_testimonies")],
         [InlineKeyboardButton("🎯 Today’s Pick", callback_data="view_pick")],
-        [InlineKeyboardButton("🤖 AI Daily Picks", callback_data="get_vip")]
+        [InlineKeyboardButton("🎯 2 Odds Rollover", callback_data="view_rollover")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
 # Persistent keyboard
     persistent_keyboard = ReplyKeyboardMarkup(
         [["💎 Get Prediction", "📸 Testimonies"],
-         ["🤖 AI Picks", "🎯 Today’s Pick"]],
+         ["🎯 2 Odds Rollover", "🎯 Today’s Pick"]],
         resize_keyboard=True, one_time_keyboard=False
     )
 
@@ -785,6 +793,8 @@ async def handle_photos(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if user_id in awaiting_upload:
         await save_today_image(update, context)
+    if user_id in awaiting_rollover:
+        await save_today_rollover(update, context)
     elif context.user_data.get(f"uploading_testimony_{user_id}"):
         await handle_uploaded_testimony(update, context)
 
@@ -794,6 +804,7 @@ app.add_handler(MessageHandler(filters.PHOTO, handle_photos))
 app.add_handler(CommandHandler("upload", upload_today_pick))
 app.add_handler(CallbackQueryHandler(handle_view_pick, pattern="view_pick"))
 app.add_handler(CallbackQueryHandler(handle_upload_pick_button, pattern="^start_upload_pick$"))
+
 
 async def handle_view_pick_p(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
@@ -829,6 +840,154 @@ async def handle_view_pick_p(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 app.add_handler(MessageHandler(filters.TEXT & filters.Regex("🎯 Today’s Pick"), handle_view_pick_p))
 
+
+async def upload_today_rollover(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if user_id != ADMIN_ID:
+        await update.message.reply_text("❌ You’re not allowed to upload picks.")
+        return
+
+    # Reply with a button, not immediately asking for the image
+    await update.message.reply_text(
+        "📝 Click the button below to upload today’s pick:",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("📎 Upload Now", callback_data="start_upload_rollover")]
+        ])
+    )
+
+
+awaiting_rollover = set()
+
+app.add_handler(CommandHandler("rollover", upload_today_rollover))
+
+
+async def handle_upload_pick_but(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    user_id = query.from_user.id
+
+    if user_id != ADMIN_ID:
+        await query.message.reply_text("❌ You’re not allowed to upload.")
+        return
+
+    awaiting_rollover.add(user_id)
+    await query.message.reply_text("📸 Now send the image you want to upload for today’s rollover.")
+
+app.add_handler(CallbackQueryHandler(handle_upload_pick_but, pattern="^start_upload_rollover$"))
+
+
+from datetime import date
+awaiting_rollover = set()  # make sure this is global
+
+async def save_today_rollover(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+
+    # ⛔ Only proceed if admin and awaiting upload
+    if user_id != ADMIN_ID or user_id not in awaiting_upload:
+        return
+
+    awaiting_rollover.remove(user_id)
+
+    # ✅ Get photo file_id
+    try:
+        file_id = update.message.photo[-1].file_id
+    except:
+        await update.message.reply_text("❌ Couldn't read the image. Try again.")
+        return
+
+    today = date.today()
+
+    # ✅ Save in database
+    try:
+        cursor.execute("DELETE FROM rollover WHERE date = %s", (today,))
+        cursor.execute("INSERT INTO rollover (image_file_id, date) VALUES (%s, %s)", (file_id, today))
+        conn.commit()
+    except Exception as e:
+        await update.message.reply_text(f"❌ DB error: {e}")
+        return
+
+    # ✅ Send to channel (text only)
+    try:
+        await context.bot.send_message(
+            chat_id=CHANNEL_ID,
+            text="📢 *Today's Rollover Pick is ready!*\n\nClick below to view the game of the day!",
+            parse_mode="Markdown",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("🔍 View Today’s Pick", url=f"https://t.me/CoozieAibot")
+            ]])
+        )
+    except Exception as e:
+        print(f"❌ Failed to send to channel: {e}")
+
+async def handle_view_rollover(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    user_id = query.from_user.id
+    await query.answer()
+
+    # Check subscription
+    cursor.execute("SELECT expires_at FROM paid_predictions WHERE user_id = %s", (user_id,))
+    row = cursor.fetchone()
+    is_active = row and row["expires_at"] > datetime.now()
+
+    if not is_active:
+        await query.message.reply_text(
+            "❌ You don't have an active subscription.",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("💎 Subscribe Now", callback_data="subscription")]
+            ])
+        )
+        return
+
+    # Get today's pick
+    today = date.today()
+    cursor.execute("SELECT image_file_id FROM rollover WHERE date = %s", (today,))
+    row = cursor.fetchone()
+
+    if row:
+        await context.bot.send_photo(
+            chat_id=user_id,
+            photo=row["image_file_id"],
+            caption="🎯 Here's today's expert pick!"
+        )
+    else:
+        await query.message.reply_text("⚠️ No game has been uploaded yet today.")
+
+app.add_handler(CallbackQueryHandler(handle_view_rollover, pattern="view_rollover"))
+
+
+async def handle_view_rollover_p(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    user_id = user.id
+
+    # Check subscription
+    cursor.execute("SELECT expires_at FROM paid_predictions WHERE user_id = %s", (user_id,))
+    row = cursor.fetchone()
+    is_active = row and row["expires_at"] > datetime.now()
+
+    if not is_active:
+        await update.message.reply_text(
+            "❌ You don't have an active subscription.",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("💎 Subscribe Now", callback_data="subscription")]
+            ])
+        )
+        return
+
+    # Get today's pick
+    today = date.today()
+    cursor.execute("SELECT image_file_id FROM rollover WHERE date = %s", (today,))
+    row = cursor.fetchone()
+
+    if row:
+        await context.bot.send_photo(
+            chat_id=user_id,
+            photo=row["image_file_id"],
+            caption="🎯 Here's today's expert pick!"
+        )
+    else:
+        await update.message.reply_text("⚠️ No game has been uploaded yet today.")
+
+app.add_handler(MessageHandler(filters.TEXT & filters.Regex("🎯 2 Odds Rollover"), handle_view_rollover_p))
 
 import requests
 from bs4 import BeautifulSoup

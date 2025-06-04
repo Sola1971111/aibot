@@ -586,7 +586,18 @@ async def check_unpaid_payments(context: ContextTypes.DEFAULT_TYPE):
             )
             await context.bot.send_message(
                 chat_id=row["user_id"],
-                text="You generated a payment link but didn't pay within 5 minutes."
+                text = 
+                    "👋 Hey! You recently generated a link to unlock *CooziePicks VIP Predictions*, "
+                    "but you haven’t completed your payment yet.\n\n"
+                    "🔥 Don’t miss out on today’s winning tips:\n"
+                    "• Daily VIP Predictions ✅\n"
+                    "• AI-Generated Picks 🤖\n"
+                    "• High Accuracy Results 📈\n\n"
+                    "Complete your payment now and start winning today! ⏳"
+                reply_markup = InlineKeyboardMarkup([[
+                    [InlineKeyboardButton("1 Month - ₦9500", callback_data="sub_9500")],
+                    [InlineKeyboardButton("3 Months - ₦25000", callback_data="sub_25000")]
+                ]])
             )
 
     cursor.execute(

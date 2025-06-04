@@ -433,7 +433,7 @@ async def show_subscription_options(update: Update, context: ContextTypes.DEFAUL
 
 
     keyboard = [
-        [InlineKeyboardButton("1 Month - ₦9500", callback_data="sub_9500")],
+        [InlineKeyboardButton("1 Month - ₦9500", callback_data="sub_100")],
         [InlineKeyboardButton("3 Months - ₦25000", callback_data="sub_25000")],
         [InlineKeyboardButton("❌ Cancel", callback_data="cancel_deposit")]
     ]

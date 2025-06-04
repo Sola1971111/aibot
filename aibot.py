@@ -100,6 +100,26 @@ CREATE TABLE IF NOT EXISTS rollover (
 """)
 conn.commit()
 
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS payment_links (
+    user_id BIGINT PRIMARY KEY,
+    plan INTEGER,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)
+""")
+conn.commit()
+
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS unpaid_payments (
+    id SERIAL PRIMARY KEY,
+    user_id BIGINT,
+    plan INTEGER,
+    created_at TIMESTAMP
+)
+""")
+conn.commit()
+
+
 # Logging setup
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 
@@ -338,7 +358,7 @@ async def view_testimonies(update: Update, context: ContextTypes.DEFAULT_TYPE):
     rows = cursor.fetchall()
 
     if not rows:
-        await update.message.reply_text("📭 No testimonies available yet.")
+        await query.message.reply_text("📭 No testimonies available yet.")
         return
 
     for row in rows:
@@ -508,6 +528,18 @@ async def handle_subscription_payment(update: Update, context: ContextTypes.DEFA
 
     if data.get("status"):
         payment_url = data["data"]["authorization_url"]
+        # Track generated payment link
+        cursor.execute(
+            """
+            INSERT INTO payment_links (user_id, plan, created_at)
+            VALUES (%s, %s, NOW())
+            ON CONFLICT (user_id) DO UPDATE
+            SET plan = EXCLUDED.plan,
+                created_at = EXCLUDED.created_at
+            """,
+            (user_id, plan)
+        )
+        conn.commit()
         await query.message.reply_text(
             f"💳 Click below to complete your VIP subscription of ₦{plan}.",
             reply_markup=InlineKeyboardMarkup([
@@ -531,6 +563,39 @@ app.add_handler(CallbackQueryHandler(cancel_deposit, pattern="^cancel_deposit$")
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from datetime import datetime, timedelta, time
+
+async def check_unpaid_payments(context: ContextTypes.DEFAULT_TYPE):
+    cursor.execute(
+        """
+        SELECT user_id, plan, created_at FROM payment_links
+        WHERE created_at <= NOW() - INTERVAL '5 minutes'
+        """
+    )
+    pending = cursor.fetchall()
+
+    for row in pending:
+        cursor.execute(
+            "SELECT 1 FROM paid_predictions WHERE user_id = %s AND expires_at > NOW()",
+            (row["user_id"],),
+        )
+        paid = cursor.fetchone()
+        if not paid:
+            cursor.execute(
+                "INSERT INTO unpaid_payments (user_id, plan, created_at) VALUES (%s, %s, %s)",
+                (row["user_id"], row["plan"], row["created_at"]),
+            )
+            await context.bot.send_message(
+                chat_id=row["user_id"],
+                text="You generated a payment link but didn't pay within 5 minutes."
+            )
+
+    cursor.execute(
+        "DELETE FROM payment_links WHERE created_at <= NOW() - INTERVAL '5 minutes'"
+    )
+    conn.commit()
+
+app.job_queue.run_repeating(check_unpaid_payments, interval=60, first=60)
+
 
 async def check_sub_expiry(context):
     today = datetime.now().date()

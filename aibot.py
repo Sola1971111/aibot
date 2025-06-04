@@ -595,8 +595,8 @@ async def check_unpaid_payments(context: ContextTypes.DEFAULT_TYPE):
                     "• High Accuracy Results 📈\n\n"
                     "Complete your payment now and start winning today! ⏳"
                 reply_markup = InlineKeyboardMarkup([[
-                    [InlineKeyboardButton("1 Month - ₦9500", callback_data="sub_9500")],
-                    [InlineKeyboardButton("3 Months - ₦25000", callback_data="sub_25000")]
+                    InlineKeyboardButton("1 Month - ₦9500", callback_data="sub_9500"),
+                    InlineKeyboardButton("3 Months - ₦25000", callback_data="sub_25000")
                 ]])
             )
 

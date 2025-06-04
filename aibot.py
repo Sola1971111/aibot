@@ -587,8 +587,8 @@ async def check_unpaid_payments(context: ContextTypes.DEFAULT_TYPE):
             await context.bot.send_message(
                 chat_id=row["user_id"],
                 text=(
-                    "👋 Hey! You recently generated a link to unlock *CooziePicks VIP "
-                    "Predictions*, but you haven’t completed your payment yet.\n\n"
+                    "👋 Hey! You recently generated a link to unlock CooziePicks VIP "
+                    "Predictions, but you haven’t completed your payment yet.\n\n"
                     "🔥 Don’t miss out on today’s winning tips:\n"
                     "• Daily VIP Predictions ✅\n"
                     "• AI-Generated Picks 🤖\n"

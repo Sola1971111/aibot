@@ -515,7 +515,7 @@ async def handle_subscription_payment(update: Update, context: ContextTypes.DEFA
         duration = 30
     elif plan == 25000:
         duration = 90
-    elif plan == 250:
+    elif plan == 2500:
         duration = 7
     else:
         duration = 30

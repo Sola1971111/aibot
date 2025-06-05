@@ -511,7 +511,14 @@ async def handle_subscription_payment(update: Update, context: ContextTypes.DEFA
         
     
     # Map plan amount to duration
-    duration = 30 if plan == 9500 else 90 if plan == 25000 else 30
+    if plan == 9500:
+        duration = 30
+    elif plan == 25000:
+        duration = 90
+    elif plan == 250:
+        duration = 7
+    else:
+        duration = 30
 
     email = f"user_{user_id}@cooziepicks.com"
     headers = {
@@ -1194,6 +1201,38 @@ async def handle_discount(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Register the handler
 app.add_handler(MessageHandler(filters.TEXT & filters.Regex(r"^/discount\|"), handle_discount))
+
+async def broadcast_week_trial(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Send a one-week trial offer to all non-VIP users."""
+    user_id = update.effective_user.id
+    if user_id != ADMIN_ID:
+        return await update.message.reply_text("⛔ You're not authorized to broadcast offers.")
+
+    cursor.execute("SELECT user_id FROM prediction_users")
+    all_users = cursor.fetchall()
+
+    async def send_offer(uid):
+        cursor.execute("SELECT expires_at FROM paid_predictions WHERE user_id = %s", (uid,))
+        sub = cursor.fetchone()
+        if sub and sub["expires_at"] > datetime.now():
+            return
+        try:
+            await context.bot.send_message(
+                chat_id=uid,
+                text="✨ Try VIP for a week for 2500 and boost your wins!",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("🚀 Try Now", callback_data="sub_250")]
+                ])
+            )
+        except Exception:
+            pass
+
+    tasks = [asyncio.create_task(send_offer(row["user_id"])) for row in all_users]
+    await asyncio.gather(*tasks)
+
+    await update.message.reply_text("✅ Trial offer broadcast sent.")
+
+app.add_handler(CommandHandler("button", broadcast_week_trial))
 
 
 # Support message text

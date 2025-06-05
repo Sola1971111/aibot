@@ -1235,59 +1235,6 @@ async def broadcast_week_trial(update: Update, context: ContextTypes.DEFAULT_TYP
 
 app.add_handler(CommandHandler("button", broadcast_week_trial))
 
-import time
-
-async def fetch_today_matches():
-    """Fetch today's football matches from SofaScore."""
-    today = datetime.now().strftime("%Y-%m-%d")
-    url = (
-        f"https://api.sofascore.com/api/v1/sport/football/events/live"
-    )
-    try:
-        resp = requests.get(url, timeout=10)
-        data = resp.json()
-    except Exception:
-        return []
-
-    events = data.get("events", [])
-    matches = []
-    for ev in events[:5]:
-        home = ev.get("homeTeam", {}).get("name")
-        away = ev.get("awayTeam", {}).get("name")
-        if home and away:
-            matches.append(f"{home} vs {away}")
-    return matches
-
-
-async def get_ai_predictions(matches):
-    """Use OpenAI to generate short match predictions."""
-    if not matches:
-        return "No matches found."
-
-    match_list = "\n".join(f"- {m}" for m in matches)
-    prompt = (
-        "Predict the winners for these football games based on recent form:\n"
-        f"{match_list}\n"
-        "Provide one short line per match."
-    )
-
-    response = client.chat.completions.create(
-        model="gpt-4-turbo",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.7,
-        max_tokens=250,
-    )
-    return response.choices[0].message.content.strip()
-
-
-async def ai_match_predictions(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    matches = await fetch_today_matches()
-    prediction_text = await get_ai_predictions(matches)
-    await update.message.reply_text(prediction_text)
-
-
-app.add_handler(CommandHandler("aipredict", ai_match_predictions))
-
 
 # Support message text
 SUPPORT_MESSAGE = (

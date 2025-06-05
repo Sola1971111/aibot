@@ -1241,7 +1241,7 @@ async def fetch_today_matches():
     """Fetch today's football matches from SofaScore."""
     today = datetime.now().strftime("%Y-%m-%d")
     url = (
-        f"https://api.sofascore.com/api/v1/sport/football/scheduled-events/{today}"
+        f"https://api.sofascore.com/api/v1/sport/football/events/live"
     )
     try:
         resp = requests.get(url, timeout=10)

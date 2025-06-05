@@ -1235,11 +1235,13 @@ async def broadcast_week_trial(update: Update, context: ContextTypes.DEFAULT_TYP
 
 app.add_handler(CommandHandler("button", broadcast_week_trial))
 
+import time
+
 async def fetch_today_matches():
     """Fetch today's football matches from SofaScore."""
     today = datetime.now().strftime("%Y-%m-%d")
     url = (
-        f"https://api.sofascore.com/api/v1/sport/football/scheduled-events/{YYYY-MM-DD}"
+        f"https://api.sofascore.com/api/v1/sport/football/scheduled-events/{today}"
     )
     try:
         resp = requests.get(url, timeout=10)

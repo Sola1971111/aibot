@@ -8,6 +8,7 @@ import datetime
 import random
 import asyncio  # Needed for async delays
 import requests
+from bs4 import BeautifulSoup
 import os
 from datetime import time
 import os
@@ -1238,7 +1239,7 @@ async def fetch_today_matches():
     """Fetch today's football matches from SofaScore."""
     today = datetime.now().strftime("%Y-%m-%d")
     url = (
-        f"https://api.sofascore.com/api/v1/sport/football/events/schedule/{today}"
+        f"https://api.sofascore.com/api/v1/sport/football/scheduled-events/{YYYY-MM-DD}"
     )
     try:
         resp = requests.get(url, timeout=10)

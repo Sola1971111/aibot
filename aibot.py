@@ -501,7 +501,15 @@ async def handle_subscription_payment(update: Update, context: ContextTypes.DEFA
     await query.answer()
     user_id = query.from_user.id
     plan = int(query.data.split("_")[1])
-
+   
+    # Check if a discounted plan is still valid
+    if plan == 6500:
+        global discount_active_until
+        if not discount_active_until or datetime.now() > discount_active_until:
+            await query.message.reply_text("❌ Discount offer has expired.")
+            return
+        
+    
     # Map plan amount to duration
     duration = 30 if plan == 9500 else 90 if plan == 25000 else 30
 
@@ -1120,6 +1128,8 @@ import asyncio
 from datetime import datetime, timedelta
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes, MessageHandler, filters
+import re
+
 
 discount_active_until = None  # Global tracker
 
@@ -1130,11 +1140,26 @@ async def handle_discount(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         days = int(update.message.text.split("|")[1])
+        duration_arg = update.message.text.split("|")[1].lower()
+        match = re.match(r"(\d+)([md])?", duration_arg)
+        if not match:
+            raise ValueError
+        value = int(match.group(1))
+        unit = match.group(2) or "d"
     except (IndexError, ValueError):
         return await update.message.reply_text("❌ Invalid format. Use: /discount|30")
+        return await update.message.reply_text(
+            "❌ Invalid format. Use: /discount|30d or /discount|45m"
+        )
 
     global discount_active_until
     discount_active_until = datetime.now() + timedelta(days=days)
+    if unit == "m":
+        discount_active_until = datetime.now() + timedelta(minutes=value)
+        expires_text = f"{value} minute{'s' if value != 1 else ''}"
+    else:
+        discount_active_until = datetime.now() + timedelta(days=value)
+        expires_text = f"{value} day{'s' if value != 1 else ''}"
 
     cursor.execute("SELECT user_id FROM prediction_users")
     all_users = cursor.fetchall()
@@ -1154,6 +1179,7 @@ async def handle_discount(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     f"🔥 *Limited-Time Offer!*\n\n"
                     f"Subscribe for 1 month at just ₦6,500 (instead of ₦9,500).\n"
                     f"Offer expires in {days} days!\n\n"
+                    f"Offer expires in {expires_text}!\n\n"
                     f"Don't miss out! 💼"
                 ),
                 parse_mode="Markdown",

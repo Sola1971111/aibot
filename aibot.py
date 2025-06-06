@@ -584,54 +584,6 @@ app.add_handler(CallbackQueryHandler(cancel_deposit, pattern="^cancel_deposit$")
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from datetime import datetime, timedelta, time
 
-async def check_unpaid_payments(context: ContextTypes.DEFAULT_TYPE):
-    cursor.execute(
-        """
-        SELECT user_id, plan, created_at FROM payment_links
-        WHERE created_at <= NOW() - INTERVAL '5 minutes'
-        """
-    )
-    pending = cursor.fetchall()
-
-    for row in pending:
-        cursor.execute(
-            "SELECT 1 FROM paid_predictions WHERE user_id = %s AND expires_at > NOW()",
-            (row["user_id"],),
-        )
-        paid = cursor.fetchone()
-        if not paid:
-            cursor.execute(
-                "INSERT INTO unpaid_payments (user_id, plan, created_at) VALUES (%s, %s, %s)",
-                (row["user_id"], row["plan"], row["created_at"]),
-            )
-            await context.bot.send_message(
-                chat_id=row["user_id"],
-                text=(
-                    "👋 Hey! You recently generated a link to unlock CooziePicks VIP "
-                    "Predictions, but you haven’t completed your payment yet.\n\n"
-                    "🔥 Don’t miss out on today’s winning tips:\n"
-                    "• Daily VIP Predictions ✅\n"
-                    "• AI-Generated Picks 🤖\n"
-                    "• High Accuracy Results 📈\n\n"
-                    "Complete your payment now and start winning today! ⏳"
-                ),
-                reply_markup=InlineKeyboardMarkup([
-                    [
-                        InlineKeyboardButton("1 Month - ₦9500", callback_data="sub_9500"),
-                        InlineKeyboardButton("3 Months - ₦25000", callback_data="sub_25000"),
-                    ]
-                ])
-            )
-
-
-    cursor.execute(
-        "DELETE FROM payment_links WHERE created_at <= NOW() - INTERVAL '5 minutes'"
-    )
-    conn.commit()
-
-app.job_queue.run_repeating(check_unpaid_payments, interval=60, first=60)
-
-
 async def check_sub_expiry(context):
     today = datetime.now().date()
 

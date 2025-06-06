@@ -434,6 +434,7 @@ async def show_subscription_options(update: Update, context: ContextTypes.DEFAUL
 
 
     keyboard = [
+        [InlineKeyboardButton("Daily - ₦1000", callback_data="sub_1000")],
         [InlineKeyboardButton("1 Month - ₦9500", callback_data="sub_9500")],
         [InlineKeyboardButton("3 Months - ₦25000", callback_data="sub_25000")],
         [InlineKeyboardButton("❌ Cancel", callback_data="cancel_deposit")]
@@ -476,6 +477,7 @@ async def show_subscription_options_p(update: Update, context: ContextTypes.DEFA
     )
 
     keyboard = [
+        [InlineKeyboardButton("Daily - ₦1000", callback_data="sub_1000")],
         [InlineKeyboardButton("1 Month - ₦9500", callback_data="sub_9500")],
         [InlineKeyboardButton("3 Months - ₦25000", callback_data="sub_25000")],
         [InlineKeyboardButton("❌ Cancel", callback_data="cancel_deposit")]
@@ -512,12 +514,14 @@ async def handle_subscription_payment(update: Update, context: ContextTypes.DEFA
         
     
     # Map plan amount to duration
-    if plan == 9500:
+     if plan == 9500:
         duration = 30
     elif plan == 25000:
         duration = 90
-    elif plan == 2500:
+    elif plan == 250:
         duration = 7
+    elif plan == 1000:
+        duration = 1
     else:
         duration = 30
 

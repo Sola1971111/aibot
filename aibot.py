@@ -1133,7 +1133,7 @@ app.add_handler(MessageHandler(filters.TEXT & filters.Regex(r"^/broadcastids\|")
 HOW_TO_PAY_VIDEO = "https://imgur.com/a/AuiRxvb"  # Replace with real file ID or URL
 HOW_TO_PAY_CAPTION = (
     "💳 *How to Complete Your Payment*\n\n"
-    "1. Tap the payment link provided when you click on subscription.\n"
+    "1. Tap the payment link provided when you click on get prediction.\n"
     "2. Pick the payment method of your choice.\n"
     "3. Then pay to unlock VIP access."
 )

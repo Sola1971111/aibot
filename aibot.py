@@ -1358,6 +1358,19 @@ async def support(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # Register the command with your bot application
 app.add_handler(CommandHandler("support", support))
 
+win_rate = (
+    "🛠 *WIN RATE*\n\n"
+    "I have a win rate of 92% \n\n"
+    "💬 Pick me... i am the best football AI\n"
+)
+
+# Support command handler function
+async def winrate(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(win_rate, parse_mode="Markdown")
+
+# Register the command with your bot application
+app.add_handler(CommandHandler("winrate", winrate))
+
 async def user_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
     cursor.execute("SELECT COUNT(*) AS count FROM prediction_users")
     result = cursor.fetchone()
@@ -1377,6 +1390,7 @@ async def set_bot_commands(application):
         BotCommand("start", "Start the bot"),
         BotCommand("checkexpiry", "Check Sub Expiry date"),
         BotCommand("support", "Get help or contact admin"),
+        BotCommand("winrate", "See my winning rate"),
         BotCommand("howtopay", "Watch how to pay"),
     ])
 

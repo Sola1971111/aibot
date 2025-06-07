@@ -520,8 +520,8 @@ async def handle_subscription_payment(update: Update, context: ContextTypes.DEFA
         duration = 90
     elif plan == 2500:
         duration = 7
-    elif plan == 1000:
-        duration = 1
+    elif plan == 1200:
+        duration = 2
     else:
         duration = 30
 
@@ -1176,9 +1176,9 @@ async def broadcast_week_trial(update: Update, context: ContextTypes.DEFAULT_TYP
         try:
             await context.bot.send_message(
                 chat_id=uid,
-                text="✨ Try VIP for a week for 2500 and boost your wins!",
+                text="✨ Try VIP for Two days for 1200 and boost your wins!",
                 reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("🚀 Try Now", callback_data="sub_2500")]
+                    [InlineKeyboardButton("🚀 Try Now", callback_data="sub_1200")]
                 ])
             )
         except Exception:

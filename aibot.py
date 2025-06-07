@@ -1085,8 +1085,63 @@ async def handle_photos(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await save_today_rollover(update, context)
     elif context.user_data.get(f"uploading_testimony_{user_id}"):
         await handle_uploaded_testimony(update, context)
+    elif user_id == ADMIN_ID and context.user_data.get("sponsor_target"):
+        await handle_sponsored_photo(update, context)
 
 app.add_handler(MessageHandler(filters.PHOTO, handle_photos))
+
+async def start_sponsor_ad(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Begin the sponsored ad upload flow."""
+    user_id = update.effective_user.id
+    if user_id != ADMIN_ID:
+        return await update.message.reply_text("⛔ You're not authorized to send ads.")
+
+    try:
+        target_id = int(update.message.text.split("|")[1])
+    except (IndexError, ValueError):
+        return await update.message.reply_text("❌ Invalid format. Use: /sponsor|<user_id>")
+
+    context.user_data["sponsor_target"] = target_id
+    await update.message.reply_text(
+        "📸 Send the ad image with caption in the format:"
+        " text here with \\n for new lines|Button Text|https://link"
+    )
+
+
+async def handle_sponsored_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Receive the ad image with caption and forward to the target user."""
+    target_id = context.user_data.pop("sponsor_target", None)
+    if not target_id:
+        return
+
+    caption = update.message.caption or ""
+    parts = caption.split("|", 2)
+    if len(parts) < 3:
+        await update.message.reply_text(
+            "❌ Invalid caption format. Use: text|Button Text|https://link"
+        )
+        return
+
+    text = parts[0].replace("\\n", "\n")
+    button_text = parts[1].strip()
+    url = parts[2].strip()
+    file_id = update.message.photo[-1].file_id
+
+    try:
+        await context.bot.send_photo(
+            chat_id=int(target_id),
+            photo=file_id,
+            caption=text,
+            reply_markup=InlineKeyboardMarkup(
+                [[InlineKeyboardButton(button_text, url=url)]]
+            ),
+        )
+        await update.message.reply_text("✅ Sponsored ad sent.")
+    except Exception as e:
+        await update.message.reply_text(f"❌ Failed to send ad: {e}")
+
+
+app.add_handler(MessageHandler(filters.TEXT & filters.Regex(r"^/sponsor\|"), start_sponsor_ad))
 
 import asyncio
 from datetime import datetime, timedelta

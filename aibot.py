@@ -1090,6 +1090,26 @@ async def handle_photos(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 app.add_handler(MessageHandler(filters.PHOTO, handle_photos))
 
+HOW_TO_PAY_VIDEO = "AAMCBAADGQECCXFfaESjiB-16lB76IrhTQSMjQ4RW6sAAiggAAJzuChSQNoHE19KRLEBAAdtAAM2BA"  # Replace with real file ID or URL
+HOW_TO_PAY_CAPTION = (
+    "💳 *How to Complete Your Payment*\n\n"
+    "1. Tap the payment link provided when you click on subscription.\n"
+    "2. Pick the payment method of your choice.\n"
+    "3. Then pay to unlock VIP access."
+)
+
+async def how_to_pay(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Send a short video explaining the payment process."""
+    await context.bot.send_video(
+        chat_id=update.effective_chat.id,
+        video=HOW_TO_PAY_VIDEO,
+        caption=HOW_TO_PAY_CAPTION,
+        parse_mode="Markdown",
+    )
+
+app.add_handler(CommandHandler("howtopay", how_to_pay))
+
+
 async def broadcast_week_trial(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Send a one-week trial offer to all non-VIP users."""
     user_id = update.effective_user.id
@@ -1318,7 +1338,9 @@ async def set_bot_commands(application):
         BotCommand("start", "Start the bot"),
         BotCommand("checkexpiry", "Check Sub Expiry date"),
         BotCommand("support", "Get help or contact admin"),
+        BotCommand("howtopay", "Watch how to pay"),
     ])
+
 
 # Set bot commands when the bot starts
 app.post_init = set_bot_commands

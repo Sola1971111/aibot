@@ -1130,7 +1130,7 @@ async def broadcast_to_ids(update: Update, context: ContextTypes.DEFAULT_TYPE):
 app.add_handler(MessageHandler(filters.TEXT & filters.Regex(r"^/broadcastids\|"), broadcast_to_ids))
 
 
-HOW_TO_PAY_VIDEO = "IMG_6597.MOV"  # Replace with real file ID or URL
+HOW_TO_PAY_VIDEO = "https://imgur.com/a/AuiRxvb"  # Replace with real file ID or URL
 HOW_TO_PAY_CAPTION = (
     "💳 *How to Complete Your Payment*\n\n"
     "1. Tap the payment link provided when you click on subscription.\n"

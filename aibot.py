@@ -1142,7 +1142,6 @@ async def how_to_pay(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Send a short video explaining the payment process."""
     await context.bot.send_video(
         chat_id=update.effective_chat.id,
-        video=HOW_TO_PAY_VIDEO,
         caption=HOW_TO_PAY_CAPTION,
         parse_mode="Markdown",
     )

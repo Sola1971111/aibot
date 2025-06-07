@@ -1085,7 +1085,7 @@ async def handle_photos(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await save_today_rollover(update, context)
     elif context.user_data.get(f"uploading_testimony_{user_id}"):
         await handle_uploaded_testimony(update, context)
-    elif user_id == ADMIN_ID and context.user_data.get("sponsor_target"):
+    elif user_id == ADMIN_ID and context.user_data.get("sponsor_broadcast"):
         await handle_sponsored_photo(update, context)
 
 app.add_handler(MessageHandler(filters.PHOTO, handle_photos))
@@ -1122,8 +1122,6 @@ async def broadcast_week_trial(update: Update, context: ContextTypes.DEFAULT_TYP
 
 app.add_handler(CommandHandler("button", broadcast_week_trial))
 
-
-# --- Sponsored Ad Feature ---
 
 
 async def start_sponsor_ad(update: Update, context: ContextTypes.DEFAULT_TYPE):

@@ -1090,6 +1090,46 @@ async def handle_photos(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 app.add_handler(MessageHandler(filters.PHOTO, handle_photos))
 
+async def broadcast_to_ids(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Broadcast a custom message to specific user IDs."""
+    if update.effective_user.id != ADMIN_ID:
+        return await update.message.reply_text("⛔ You're not authorized to broadcast.")
+
+    try:
+        _, ids_part, text = update.message.text.split("|", 2)
+    except ValueError:
+        return await update.message.reply_text(
+            "❌ Invalid format. Use: /broadcastids|123,456|Your message"
+        )
+
+    ids = []
+    for part in ids_part.split(','):
+        part = part.strip()
+        if part.isdigit():
+            ids.append(int(part))
+
+    if not ids:
+        return await update.message.reply_text("❌ No valid user IDs provided.")
+
+    message_text = text.replace("\\n", "\n")
+    markup = InlineKeyboardMarkup([
+        [InlineKeyboardButton("💎 Subscribe", callback_data="subscription")]
+    ])
+
+    async def send(uid: int):
+        try:
+            await context.bot.send_message(chat_id=uid, text=message_text, reply_markup=markup)
+        except Exception as e:
+            print(f"Failed to send to {uid}: {e}")
+
+    tasks = [asyncio.create_task(send(uid)) for uid in ids]
+    await asyncio.gather(*tasks)
+    await update.message.reply_text("✅ Broadcast sent.")
+
+
+app.add_handler(MessageHandler(filters.TEXT & filters.Regex(r"^/broadcastids\|"), broadcast_to_ids))
+
+
 HOW_TO_PAY_VIDEO = "IMG_6597.MOV"  # Replace with real file ID or URL
 HOW_TO_PAY_CAPTION = (
     "💳 *How to Complete Your Payment*\n\n"

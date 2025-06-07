@@ -1090,18 +1090,49 @@ async def handle_photos(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 app.add_handler(MessageHandler(filters.PHOTO, handle_photos))
 
+async def broadcast_week_trial(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Send a one-week trial offer to all non-VIP users."""
+    user_id = update.effective_user.id
+    if user_id != ADMIN_ID:
+        return await update.message.reply_text("⛔ You're not authorized to broadcast offers.")
+
+    cursor.execute("SELECT user_id FROM prediction_users")
+    all_users = cursor.fetchall()
+
+    async def send_offer(uid):
+        cursor.execute("SELECT expires_at FROM paid_predictions WHERE user_id = %s", (uid,))
+        sub = cursor.fetchone()
+        if sub and sub["expires_at"] > datetime.now():
+            return
+        try:
+            await context.bot.send_message(
+                chat_id=uid,
+                text="✨ Try VIP for a week and boost your wins!",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("🚀 Try Now", callback_data="sub_250")]
+                ])
+            )
+        except Exception:
+            pass
+
+    tasks = [asyncio.create_task(send_offer(row["user_id"])) for row in all_users]
+    await asyncio.gather(*tasks)
+
+    await update.message.reply_text("✅ Trial offer broadcast sent.")
+
+app.add_handler(CommandHandler("button", broadcast_week_trial))
+
+
+# --- Sponsored Ad Feature ---
+
+
 async def start_sponsor_ad(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Begin the sponsored ad upload flow."""
+    """Begin the sponsored ad upload flow for all users."""
     user_id = update.effective_user.id
     if user_id != ADMIN_ID:
         return await update.message.reply_text("⛔ You're not authorized to send ads.")
 
-    try:
-        target_id = int(update.message.text.split("|")[1])
-    except (IndexError, ValueError):
-        return await update.message.reply_text("❌ Invalid format. Use: /sponsor|<user_id>")
-
-    context.user_data["sponsor_target"] = target_id
+    context.user_data["sponsor_broadcast"] = True
     await update.message.reply_text(
         "📸 Send the ad image with caption in the format:"
         " text here with \\n for new lines|Button Text|https://link"
@@ -1110,8 +1141,8 @@ async def start_sponsor_ad(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handle_sponsored_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Receive the ad image with caption and forward to the target user."""
-    target_id = context.user_data.pop("sponsor_target", None)
-    if not target_id:
+    broadcast = context.user_data.pop("sponsor_broadcast", None)
+    if not broadcast:
         return
 
     caption = update.message.caption or ""
@@ -1127,21 +1158,29 @@ async def handle_sponsored_photo(update: Update, context: ContextTypes.DEFAULT_T
     url = parts[2].strip()
     file_id = update.message.photo[-1].file_id
 
-    try:
-        await context.bot.send_photo(
-            chat_id=int(target_id),
-            photo=file_id,
-            caption=text,
-            reply_markup=InlineKeyboardMarkup(
-                [[InlineKeyboardButton(button_text, url=url)]]
-            ),
-        )
-        await update.message.reply_text("✅ Sponsored ad sent.")
-    except Exception as e:
-        await update.message.reply_text(f"❌ Failed to send ad: {e}")
+    cursor.execute("SELECT user_id FROM prediction_users")
+    all_users = cursor.fetchall()
+
+    async def send_ad(uid):
+        try:
+            await context.bot.send_photo(
+                chat_id=uid,
+                photo=file_id,
+                caption=text,
+                reply_markup=InlineKeyboardMarkup(
+                    [[InlineKeyboardButton(button_text, url=url)]]
+                ),
+            )
+        except Exception:
+            pass
+
+    tasks = [asyncio.create_task(send_ad(row["user_id"])) for row in all_users]
+    await asyncio.gather(*tasks)
+
+    await update.message.reply_text("✅ Sponsored ad sent to all users.")
 
 
-app.add_handler(MessageHandler(filters.TEXT & filters.Regex(r"^/sponsor\|"), start_sponsor_ad))
+app.add_handler(CommandHandler("sponsor", start_sponsor_ad))
 
 import asyncio
 from datetime import datetime, timedelta

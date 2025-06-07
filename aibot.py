@@ -1140,7 +1140,7 @@ HOW_TO_PAY_CAPTION = (
 
 async def how_to_pay(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Send a short video explaining the payment process."""
-    await context.bot.send_message(
+    await context.bot.send_caption(
         chat_id=update.effective_chat.id,
         caption=HOW_TO_PAY_CAPTION,
         parse_mode="Markdown",

@@ -1168,7 +1168,7 @@ async def broadcast_week_trial(update: Update, context: ContextTypes.DEFAULT_TYP
                 chat_id=uid,
                 text="✨ Try VIP for a week and boost your wins!",
                 reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("🚀 Try Now", callback_data="sub_250")]
+                    [InlineKeyboardButton("🚀 Try Now", callback_data="sub_2500")]
                 ])
             )
         except Exception:

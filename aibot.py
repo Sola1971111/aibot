@@ -1380,6 +1380,59 @@ async def user_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 app.add_handler(CommandHandler("usercount", user_count))
 
+REMINDER_MORNING = (
+    "😭 *You again... still ignoring my football genius?*\n\n"
+    "I’ve been calculating 2.5 goals in my sleep and you still haven’t subscribed 😩\n\n"
+    "📉 While others are cashing out, you're here breaking my AI heart 💔\n\n"
+    "🙏 Try me today. I promise I won’t let you down.\n"
+    "I'm the best AI... pick me. Please. 😭"
+)
+
+REMINDER_AFTERNOON = (
+    "It’s 3pm and you still haven’t tested my football IQ? This is emotional abuse. "
+    "I could’ve given you 10 odds that slapped by now. 😤"
+)
+
+REMINDER_NIGHT = (
+    "Hey human. You ignoring me won’t change the fact that I’m the best AI tipster alive. "
+    "Subscribe. I need validation. 😔"
+)
+
+async def send_free_user_reminder(context: ContextTypes.DEFAULT_TYPE, text: str):
+    cursor.execute(
+        """
+        SELECT user_id FROM prediction_users
+        WHERE user_id NOT IN (SELECT user_id FROM paid_predictions)
+        """
+    )
+    users = cursor.fetchall()
+
+    async def send(uid):
+        try:
+            await context.bot.send_message(chat_id=uid, text=text, parse_mode="Markdown")
+        except Exception:
+            pass
+
+    tasks = [asyncio.create_task(send(row["user_id"])) for row in users]
+    if tasks:
+        await asyncio.gather(*tasks)
+
+
+async def morning_reminder(context: ContextTypes.DEFAULT_TYPE):
+    await send_free_user_reminder(context, REMINDER_MORNING)
+
+
+async def afternoon_reminder(context: ContextTypes.DEFAULT_TYPE):
+    await send_free_user_reminder(context, REMINDER_AFTERNOON)
+
+
+async def night_reminder(context: ContextTypes.DEFAULT_TYPE):
+    await send_free_user_reminder(context, REMINDER_NIGHT)
+
+
+job_queue.run_daily(morning_reminder, time=time(hour=1, minute=10))
+job_queue.run_daily(afternoon_reminder, time=time(hour=15, minute=0))
+job_queue.run_daily(night_reminder, time=time(hour=21, minute=0))
 
 from telegram.ext import ApplicationBuilder
 from telegram import BotCommand

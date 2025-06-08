@@ -1380,7 +1380,7 @@ async def user_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 app.add_handler(CommandHandler("usercount", user_count))
 
-REMINDER_MORNING = (
+text = (
     "😭 *You again... still ignoring my football genius?*\n\n"
     "I’ve been calculating 2.5 goals in my sleep and you still haven’t subscribed 😩\n\n"
     "📉 While others are cashing out, you're here breaking my AI heart 💔\n\n"
@@ -1413,7 +1413,7 @@ async def send_free_user_reminder(context: ContextTypes.DEFAULT_TYPE, text: str)
         except Exception:
             pass
 
-    tasks = [asyncio.create_task(send(row[0])) for row in users]
+    tasks = [asyncio.create_task(send(row["user_id"])) for row in users]
     if tasks:
         await asyncio.gather(*tasks)
 
@@ -1430,7 +1430,7 @@ async def night_reminder(context: ContextTypes.DEFAULT_TYPE):
     await send_free_user_reminder(context, REMINDER_NIGHT)
 
 
-job_queue.run_daily(morning_reminder, time=time(hour=12, minute=34))
+job_queue.run_daily(morning_reminder, time=time(hour=12, minute=44))
 job_queue.run_daily(afternoon_reminder, time=time(hour=15, minute=0))
 job_queue.run_daily(night_reminder, time=time(hour=21, minute=0))
 

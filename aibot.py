@@ -1380,7 +1380,9 @@ async def user_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 app.add_handler(CommandHandler("usercount", user_count))
 
-text = (
+# --- Daily reminders for free users ---
+
+REMINDER_MORNING = (
     "😭 *You again... still ignoring my football genius?*\n\n"
     "I’ve been calculating 2.5 goals in my sleep and you still haven’t subscribed 😩\n\n"
     "📉 While others are cashing out, you're here breaking my AI heart 💔\n\n"
@@ -1399,40 +1401,48 @@ REMINDER_NIGHT = (
 )
 
 async def send_free_user_reminder(context: ContextTypes.DEFAULT_TYPE, text: str):
+    """Notify users without an active subscription."""
     cursor.execute(
         """
         SELECT user_id FROM prediction_users
         WHERE user_id NOT IN (SELECT user_id FROM paid_predictions)
         """
     )
-    users = cursor.fetchall()
+    user_ids = [row["user_id"] for row in cursor.fetchall()]
 
-    async def send(uid):
+    logging.info("Broadcasting reminder to %d free users", len(user_ids))
+
+    for uid in user_ids:
         try:
-            await context.bot.send_message(chat_id=uid, text=text, parse_mode="Markdown")
-        except Exception:
-            pass
-
-    tasks = [asyncio.create_task(send(row["user_id"])) for row in users]
-    if tasks:
-        await asyncio.gather(*tasks)
+            await context.bot.send_message(
+                chat_id=uid,
+                text=text,
+                parse_mode="Markdown",
+                reply_markup=SUBSCRIBE_MARKUP,
+            )
+        except Exception as e:
+            logging.warning("Failed to send reminder to %s: %s", uid, e)
 
 
 async def morning_reminder(context: ContextTypes.DEFAULT_TYPE):
+    logging.info("Running morning reminder")
     await send_free_user_reminder(context, REMINDER_MORNING)
 
 
 async def afternoon_reminder(context: ContextTypes.DEFAULT_TYPE):
+    logging.info("Running afternoon reminder")
     await send_free_user_reminder(context, REMINDER_AFTERNOON)
 
 
 async def night_reminder(context: ContextTypes.DEFAULT_TYPE):
+    logging.info("Running night reminder")
     await send_free_user_reminder(context, REMINDER_NIGHT)
 
 
-job_queue.run_daily(morning_reminder, time=time(hour=12, minute=44))
+job_queue.run_daily(morning_reminder, time=time(hour=12, minute=48))
 job_queue.run_daily(afternoon_reminder, time=time(hour=15, minute=0))
 job_queue.run_daily(night_reminder, time=time(hour=21, minute=0))
+
 
 from telegram.ext import ApplicationBuilder
 from telegram import BotCommand

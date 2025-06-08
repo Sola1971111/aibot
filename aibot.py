@@ -502,6 +502,11 @@ from telegram.ext import ContextTypes
 async def handle_subscription_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
+
+    if query.data == "sub_250":
+        await query.answer("The subscription 250 was a mistake and has been discontinued")
+        return
+    
     user_id = query.from_user.id
     plan = int(query.data.split("_")[1])
    

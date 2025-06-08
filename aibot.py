@@ -1345,7 +1345,7 @@ async def broadcast_week_trial(update: Update, context: ContextTypes.DEFAULT_TYP
 
     await update.message.reply_text("✅ Trial offer broadcast sent.")
 
-app.add_handler(CommandHandler("button", broadcast_week_trial))
+app.add_handler(CommandHandler("button1", broadcast_week_trial))
 
 
 # Support message text

@@ -1430,7 +1430,7 @@ async def night_reminder(context: ContextTypes.DEFAULT_TYPE):
     await send_free_user_reminder(context, REMINDER_NIGHT)
 
 
-job_queue.run_daily(morning_reminder, time=time(hour=12, minute=22))
+job_queue.run_daily(morning_reminder, time=time(hour=12, minute=29))
 job_queue.run_daily(afternoon_reminder, time=time(hour=15, minute=0))
 job_queue.run_daily(night_reminder, time=time(hour=21, minute=0))
 

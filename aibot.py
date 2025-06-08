@@ -503,7 +503,7 @@ async def handle_subscription_payment(update: Update, context: ContextTypes.DEFA
     query = update.callback_query
     await query.answer()
 
-    if "sub_250" in query.data:
+    if query.data == "sub_250":
         await query.answer("The subscription 250 was a mistake and has been discontinued")
         return
     

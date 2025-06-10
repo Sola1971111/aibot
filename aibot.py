@@ -120,6 +120,14 @@ CREATE TABLE IF NOT EXISTS unpaid_payments (
 """)
 conn.commit()
 
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS partner_channels (
+    channel_id BIGINT PRIMARY KEY,
+    owner_id BIGINT
+)
+""")
+conn.commit()
+
 
 # Logging setup
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
@@ -842,6 +850,10 @@ async def save_today_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if isinstance(result, Exception):
                 print(f"❌ Could not send to {user['user_id']}: {result}")
 
+        # Also post to partner channels with referral links
+        await post_to_partner_channels(context, file_id, "🎯 Today's Pick is live!")
+
+
         await context.bot.send_message(
             chat_id=ADMIN_ID,  # Replace with your actual admin ID
             text="✅ Today’s Pick has been sent to all VIP users and posted in the channel."
@@ -925,6 +937,31 @@ async def handle_view_pick_p(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 app.add_handler(MessageHandler(filters.TEXT & filters.Regex("🎯 Today’s Pick"), handle_view_pick_p))
 
+# Helper to post new content to partner channels
+async def post_to_partner_channels(context: ContextTypes.DEFAULT_TYPE, file_id: str, caption: str):
+    """Forward posts to all registered partner channels with referral buttons."""
+    cursor.execute("SELECT channel_id, owner_id FROM partner_channels")
+    partners = cursor.fetchall()
+
+    tasks = []
+    for row in partners:
+        ref_link = f"https://t.me/{YOUR_BOT_USERNAME}?start=ref{row['owner_id']}"
+        markup = InlineKeyboardMarkup(
+            [[InlineKeyboardButton("Subscribe", url=ref_link)]]
+        )
+        tasks.append(
+            context.bot.send_photo(
+                chat_id=row["channel_id"],
+                photo=file_id,
+                caption=caption,
+                parse_mode="Markdown",
+                reply_markup=markup,
+            )
+        )
+
+    if tasks:
+        await asyncio.gather(*tasks, return_exceptions=True)
+
 
 async def upload_today_rollover(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -1004,10 +1041,14 @@ async def save_today_rollover(update: Update, context: ContextTypes.DEFAULT_TYPE
     except Exception as e:
         print(f"❌ Failed to send to channel: {e}")
 
+
         await context.bot.send_message(
             chat_id=ADMIN_ID,  # Replace with your actual admin ID
             text="✅ Today’s rollover has been sent to all VIP users and posted in the channel."
         )
+    
+    # Forward to partner channels
+    await post_to_partner_channels(context, file_id, "🎯 Today's rollover pick!")
 
 
 async def handle_view_rollover(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1188,7 +1229,7 @@ app.add_handler(CommandHandler("button", broadcast_week_trial))
 
 
 
-async def start_sponsor_ad(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def  start_sponsor_ad(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Begin the sponsored ad upload flow for all users."""
     user_id = update.effective_user.id
     if user_id != ADMIN_ID:
@@ -1362,6 +1403,53 @@ async def support(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Register the command with your bot application
 app.add_handler(CommandHandler("support", support))
+
+async def monetize(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Provide referral link and prompt channel setup."""
+    user_id = update.effective_user.id
+    ref_link = f"https://t.me/{YOUR_BOT_USERNAME}?start=ref{user_id}"
+    keyboard = InlineKeyboardMarkup(
+        [[InlineKeyboardButton("➕ Add to Channel", callback_data="mon_add")]]
+    )
+    await update.message.reply_text(
+        f"💰 Here is your referral link:\n{ref_link}\nShare it and earn 60% commission!",
+        reply_markup=keyboard,
+    )
+
+async def monetize_begin(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Ask the user to forward a channel post."""
+    query = update.callback_query
+    await query.answer()
+    context.user_data["awaiting_channel_forward"] = True
+    await query.message.reply_text("Please forward a post from your channel so I can verify admin rights.")
+
+async def handle_channel_forward(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.user_data.get("awaiting_channel_forward"):
+        return
+    if not update.message.forward_from_chat:
+        return await update.message.reply_text("❌ Please forward a post from your channel.")
+
+    channel = update.message.forward_from_chat
+    try:
+        admins = await context.bot.get_chat_administrators(channel.id)
+    except Exception:
+        return await update.message.reply_text("❌ Unable to fetch channel admins. Make sure I'm added as admin.")
+
+    if not any(a.user.id == context.bot.id for a in admins):
+        return await update.message.reply_text("❌ Please add me as an admin in that channel and try again.")
+
+    cursor.execute(
+        "INSERT INTO partner_channels (channel_id, owner_id) VALUES (%s, %s) ON CONFLICT (channel_id) DO NOTHING",
+        (channel.id, update.effective_user.id),
+    )
+    conn.commit()
+    context.user_data.pop("awaiting_channel_forward", None)
+    await update.message.reply_text("✅ Channel linked! Future posts will include your referral link.")
+
+app.add_handler(CommandHandler("monetize", monetize))
+app.add_handler(CallbackQueryHandler(monetize_begin, pattern="^mon_add$"))
+app.add_handler(MessageHandler(filters.FORWARDED, handle_channel_forward))
+
 
 win_rate = (
     "🛠 *WIN RATE*\n\n"

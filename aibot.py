@@ -1426,7 +1426,7 @@ async def monetize_begin(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_channel_forward(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.user_data.get("awaiting_channel_forward"):
         return
-    if not update.message.forward_from_chat:
+    if not update.message.forward_from_chat or not update.message.foward_from_chat:
         return await update.message.reply_text("❌ Please forward a post from your channel.")
 
     channel = update.message.forward_from_chat

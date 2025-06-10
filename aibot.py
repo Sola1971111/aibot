@@ -1390,6 +1390,43 @@ async def broadcast_week_trial(update: Update, context: ContextTypes.DEFAULT_TYP
 
 app.add_handler(CommandHandler("button1", broadcast_week_trial))
 
+async def broadcast_to_free_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Broadcast a custom message to all users without an active subscription."""
+    if update.effective_user.id != ADMIN_ID:
+        return await update.message.reply_text("⛔ You're not authorized to broadcast.")
+
+    try:
+        _, text = update.message.text.split("|", 1)
+    except ValueError:
+        return await update.message.reply_text("❌ Invalid format. Use: /broadcastfree|Your message")
+
+    message_text = text.replace("\\n", "\n")
+
+    cursor.execute("SELECT user_id FROM prediction_users")
+    users = cursor.fetchall()
+
+    async def send(uid: int):
+        cursor.execute("SELECT expires_at FROM paid_predictions WHERE user_id = %s", (uid,))
+        sub = cursor.fetchone()
+        if sub and sub["expires_at"] > datetime.now():
+            return
+        try:
+            await context.bot.send_message(
+                chat_id=uid,
+                text=message_text,
+                parse_mode="Markdown",
+                reply_markup=SUBSCRIBE_MARKUP,
+            )
+        except Exception:
+            pass
+
+    tasks = [asyncio.create_task(send(row["user_id"])) for row in users]
+    await asyncio.gather(*tasks)
+    await update.message.reply_text("✅ Broadcast sent to free users.")
+
+
+app.add_handler(MessageHandler(filters.TEXT & filters.Regex(r"^/broadcastfree\|"), broadcast_to_free_users))
+
 
 # Support message text
 SUPPORT_MESSAGE = (

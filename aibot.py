@@ -1414,7 +1414,7 @@ async def monetize(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [[InlineKeyboardButton("➕ Add to your Channel", callback_data="mon_add")]]
     )
     await update.message.reply_text(
-        f"💰 Here is your referral link:\n{ref_link}\n\n Share it and earn 60% commission when a user psys for vip pick with your link!",
+        f"💰 Here is your referral link:\n{ref_link}\n\n Share it and earn 60% commission when a user subscribes using your link!",
         reply_markup=keyboard,
     )
 

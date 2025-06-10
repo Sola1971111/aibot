@@ -1424,12 +1424,15 @@ async def monetize_begin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.message.reply_text("Please forward a post from your channel so I can verify admin rights.")
 
 async def handle_channel_forward(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Store the forwarded channel if the bot is admin there."""
     if not context.user_data.get("awaiting_channel_forward"):
         return
-    if not update.message.forward_from_chat or not update.message.foward_from_chat:
+
+    origin = update.message.forward_origin
+    if not origin or not hasattr(origin, "chat"):
         return await update.message.reply_text("❌ Please forward a post from your channel.")
 
-    channel = update.message.forward_from_chat
+    channel = origin.chat
     try:
         admins = await context.bot.get_chat_administrators(channel.id)
     except Exception:

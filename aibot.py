@@ -851,7 +851,7 @@ async def save_today_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 print(f"❌ Could not send to {user['user_id']}: {result}")
 
         # Also post to partner channels with referral links
-        await post_to_partner_channels(context, file_id, "🎯 Today's Pick is live!")
+        await post_to_partner_channels(context, file_id, "🎯 Today's Premium ticket is live!")
 
 
         await context.bot.send_message(
@@ -939,7 +939,10 @@ app.add_handler(MessageHandler(filters.TEXT & filters.Regex("🎯 Today’s Pick
 
 # Helper to post new content to partner channels
 async def post_to_partner_channels(context: ContextTypes.DEFAULT_TYPE, file_id: str, caption: str):
-    """Forward posts to all registered partner channels with referral buttons."""
+    """Notify partner channels about new posts with referral buttons.
+
+    The file_id parameter is ignored so only the text caption is broadcast.
+    """
     cursor.execute("SELECT channel_id, owner_id FROM partner_channels")
     partners = cursor.fetchall()
 
@@ -950,10 +953,9 @@ async def post_to_partner_channels(context: ContextTypes.DEFAULT_TYPE, file_id: 
             [[InlineKeyboardButton("Subscribe", url=ref_link)]]
         )
         tasks.append(
-            context.bot.send_photo(
+            context.bot.send_message(
                 chat_id=row["channel_id"],
-                photo=file_id,
-                caption=caption,
+                text=caption,
                 parse_mode="Markdown",
                 reply_markup=markup,
             )
@@ -1409,10 +1411,10 @@ async def monetize(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     ref_link = f"https://t.me/{YOUR_BOT_USERNAME}?start=ref{user_id}"
     keyboard = InlineKeyboardMarkup(
-        [[InlineKeyboardButton("➕ Add to Channel", callback_data="mon_add")]]
+        [[InlineKeyboardButton("➕ Add to your Channel", callback_data="mon_add")]]
     )
     await update.message.reply_text(
-        f"💰 Here is your referral link:\n{ref_link}\nShare it and earn 60% commission!",
+        f"💰 Here is your referral link:\n{ref_link}\n\n Share it and earn 60% commission when a user psys for vip pick with your link!",
         reply_markup=keyboard,
     )
 
@@ -1421,7 +1423,7 @@ async def monetize_begin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     context.user_data["awaiting_channel_forward"] = True
-    await query.message.reply_text("Please forward a post from your channel so I can verify admin rights.")
+    await query.message.reply_text("First make me admin on your channel\n\n Then forward a post from your channel so I can verify admin rights.")
 
 async def handle_channel_forward(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Store the forwarded channel if the bot is admin there."""

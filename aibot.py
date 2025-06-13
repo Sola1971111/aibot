@@ -1427,7 +1427,6 @@ async def broadcast_to_free_users(update: Update, context: ContextTypes.DEFAULT_
                 chat_id=uid,
                 text=message_text,
                 parse_mode="Markdown",
-                reply_markup=SUBSCRIBE_MARKUP,
             )
             sent += 1
             await asyncio.sleep(0.1)

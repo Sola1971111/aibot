@@ -224,7 +224,7 @@ async def won_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ You are not authorized to send this message.")
         return
 
-    message_text = "🎉 *Yesterday Game WON!*\n\nIf you won, share your testimony below to inspire others!"
+    message_text = "🎉 *Today`s Game WON!*\n\nIf you won, share your testimony below to inspire others!"
     reply_markup = InlineKeyboardMarkup([
         [InlineKeyboardButton("📸 Upload Your Testimony", callback_data="upload_testimony")]
     ])
@@ -851,7 +851,7 @@ async def save_today_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
             tasks.append(task)
 
         # Run all send_photo tasks concurrently
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+        results = await run_tasks_in_batches(tasks)
 
         # Handle individual failures
         for user, result in zip(vip_users, results):
@@ -970,7 +970,7 @@ async def post_to_partner_channels(context: ContextTypes.DEFAULT_TYPE, file_id: 
         )
 
     if tasks:
-        await asyncio.gather(*tasks, return_exceptions=True)
+        await run_tasks_in_batches(tasks)
 
 
 async def upload_today_rollover(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1179,7 +1179,7 @@ async def broadcast_to_ids(update: Update, context: ContextTypes.DEFAULT_TYPE):
             print(f"Failed to send to {uid}: {e}")
 
     tasks = [asyncio.create_task(send(uid)) for uid in ids]
-    await asyncio.gather(*tasks)
+    await run_tasks_in_batches(tasks)
     await update.message.reply_text("✅ Broadcast sent.")
 
 
@@ -1288,7 +1288,7 @@ async def handle_sponsored_photo(update: Update, context: ContextTypes.DEFAULT_T
             pass
 
     tasks = [asyncio.create_task(send_ad(row["user_id"])) for row in all_users]
-    await asyncio.gather(*tasks)
+    await run_tasks_in_batches(tasks)
 
     await update.message.reply_text("✅ Sponsored ad sent to all users.")
 
@@ -1359,7 +1359,7 @@ async def handle_discount(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Run all send tasks in parallel
     tasks = [asyncio.create_task(send_discount(row["user_id"])) for row in all_users]
-    await asyncio.gather(*tasks)
+    await run_tasks_in_batches(tasks)
 
     await update.message.reply_text("✅ Discount broadcast sent to all non-VIP users.")
 
@@ -1392,7 +1392,7 @@ async def broadcast_week_trial(update: Update, context: ContextTypes.DEFAULT_TYP
             pass
 
     tasks = [asyncio.create_task(send_offer(row["user_id"])) for row in all_users]
-    await asyncio.gather(*tasks)
+    await run_tasks_in_batches(tasks)
 
     await update.message.reply_text("✅ Trial offer broadcast sent.")
 
@@ -1411,29 +1411,33 @@ async def broadcast_to_free_users(update: Update, context: ContextTypes.DEFAULT_
     message_text = text.replace("\\n", "\n")
 
     cursor.execute("SELECT user_id FROM prediction_users")
-    users = cursor.fetchall()
+    users = [row["user_id"] for row in cursor.fetchall()]
 
-    async def send(uid: int):
-        cursor.execute("SELECT expires_at FROM paid_predictions WHERE user_id = %s", (uid,))
+    sent = 0
+    for uid in users:
+        cursor.execute(
+            "SELECT expires_at FROM paid_predictions WHERE user_id = %s",
+            (uid,),
+        )
         sub = cursor.fetchone()
         if sub and sub["expires_at"] > datetime.now():
-            return
+            continue
         try:
             await context.bot.send_message(
                 chat_id=uid,
                 text=message_text,
                 parse_mode="Markdown",
+                reply_markup=SUBSCRIBE_MARKUP,
             )
-        except Exception:
-            pass
+            sent += 1
+            await asyncio.sleep(0.1)
+        except Exception as e:
+            logging.info(f"Failed to send to {uid}: {e}")
 
-    tasks = [asyncio.create_task(send(row["user_id"])) for row in users]
-    await asyncio.gather(*tasks)
-    await update.message.reply_text("✅ Broadcast sent to free users.")
+    await update.message.reply_text(f"✅ Broadcast sent to {sent} free users.")
 
 
 app.add_handler(MessageHandler(filters.TEXT & filters.Regex(r"^/broadcastfree\|"), broadcast_to_free_users))
-
 
 # Support message text
 SUPPORT_MESSAGE = (

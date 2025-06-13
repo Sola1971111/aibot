@@ -1544,23 +1544,29 @@ REMINDER_NIGHT = (
 )
 
 async def send_free_user_reminder(context: ContextTypes.DEFAULT_TYPE, text: str):
+    """Notify users without an active subscription."""
     cursor.execute(
         """
         SELECT user_id FROM prediction_users
         WHERE user_id NOT IN (SELECT user_id FROM paid_predictions)
         """
     )
-    users = cursor.fetchall()
+    user_ids = [row["user_id"] for row in cursor.fetchall()]
+
+    logging.info("Broadcasting reminder to %d free users", len(user_ids))
 
     async def send(uid):
         try:
-            await context.bot.send_message(chat_id=uid, text=text, parse_mode="Markdown")
-        except Exception:
-            pass
+            await context.bot.send_message(
+                chat_id=uid,
+                text=text,
+                parse_mode="Markdown",
+            )
+        except Exception as e:
+            logging.warning("Failed to send reminder to %s: %s", uid, e)
 
-    tasks = [asyncio.create_task(send(row["user_id"])) for row in users]
-    if tasks:
-        await asyncio.gather(*tasks)
+    tasks = [send(uid) for uid in user_ids]
+    await run_tasks_in_batches(tasks)
 
 
 async def morning_reminder(context: ContextTypes.DEFAULT_TYPE):

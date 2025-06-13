@@ -26,7 +26,16 @@ TOKEN = os.getenv("TOKEN")
 # Admin ID (Replace with your own Telegram ID to receive withdrawal requests)
 ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))  # Replace this with your Telegram user ID
 
-
+# Helper to run async tasks in manageable batches to avoid timeouts
+async def run_tasks_in_batches(tasks, batch_size=20, delay=0.1):
+    """Execute tasks in batches, returning combined results."""
+    results = []
+    for i in range(0, len(tasks), batch_size):
+        batch = tasks[i : i + batch_size]
+        results.extend(await asyncio.gather(*batch, return_exceptions=True))
+        if i + batch_size < len(tasks):
+            await asyncio.sleep(delay)
+    return results
 
 # Initialize bot application
 app = Application.builder().token(TOKEN).build()
@@ -215,7 +224,7 @@ async def won_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ You are not authorized to send this message.")
         return
 
-    message_text = "🎉 *Today`s Game WON!*\n\nIf you won, share your testimony below to inspire others!"
+    message_text = "🎉 *Yesterday Game WON!*\n\nIf you won, share your testimony below to inspire others!"
     reply_markup = InlineKeyboardMarkup([
         [InlineKeyboardButton("📸 Upload Your Testimony", callback_data="upload_testimony")]
     ])
@@ -237,8 +246,7 @@ async def won_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             print(f"Failed to send to {user_id}: {e}")
 
     tasks = [send_to_user(user["user_id"]) for user in users]
-    await asyncio.gather(*tasks)
-
+    await run_tasks_in_batches(tasks)
     await update.message.reply_text("✅ Broadcast sent to all users.")
 
 # Register the command

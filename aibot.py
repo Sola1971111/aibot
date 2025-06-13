@@ -1410,28 +1410,31 @@ async def broadcast_to_free_users(update: Update, context: ContextTypes.DEFAULT_
 
     message_text = text.replace("\\n", "\n")
 
-    cursor.execute("SELECT user_id FROM prediction_users")
+    cursor.execute(
+        """
+        SELECT user_id FROM prediction_users
+        WHERE user_id NOT IN (
+            SELECT user_id FROM paid_predictions WHERE expires_at > NOW()
+        )
+        """
+    )
     users = [row["user_id"] for row in cursor.fetchall()]
 
-    sent = 0
-    for uid in users:
-        cursor.execute(
-            "SELECT expires_at FROM paid_predictions WHERE user_id = %s",
-            (uid,),
-        )
-        sub = cursor.fetchone()
-        if sub and sub["expires_at"] > datetime.now():
-            continue
+    async def send(uid: int):
         try:
             await context.bot.send_message(
                 chat_id=uid,
                 text=message_text,
                 parse_mode="Markdown",
             )
-            sent += 1
-            await asyncio.sleep(0.1)
+            return True
         except Exception as e:
             logging.info(f"Failed to send to {uid}: {e}")
+            return False
+
+    tasks = [send(uid) for uid in users]
+    results = await run_tasks_in_batches(tasks)
+    sent = sum(1 for r in results if r is True)
 
     await update.message.reply_text(f"✅ Broadcast sent to {sent} free users.")
 

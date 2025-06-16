@@ -1328,7 +1328,7 @@ async def handle_sponsored_photo(update: Update, context: ContextTypes.DEFAULT_T
             pass
 
     tasks = [asyncio.create_task(send_ad(row["user_id"])) for row in all_users]
-    await run_tasks_in_batches(tasks)
+    await asyncio.gather(*tasks)
 
     await update.message.reply_text("✅ Sponsored ad sent to all users.")
 

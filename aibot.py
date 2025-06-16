@@ -1292,7 +1292,7 @@ async def  start_sponsor_ad(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 import logging
-logger = logging.grtLogger(__name__)
+logger = logging.getLogger(__name__)
 
 async def handle_sponsored_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Receive the ad image with caption and forward to the target user."""

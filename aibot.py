@@ -1291,6 +1291,8 @@ async def  start_sponsor_ad(update: Update, context: ContextTypes.DEFAULT_TYPE):
         " text here with \\n for new lines|Button Text|https://link"
     )
 
+import logging
+logger = logging.grtLogger(__name__)
 
 async def handle_sponsored_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Receive the ad image with caption and forward to the target user."""
@@ -1324,13 +1326,12 @@ async def handle_sponsored_photo(update: Update, context: ContextTypes.DEFAULT_T
                     [[InlineKeyboardButton(button_text, url=url)]]
                 ),
             )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error(f"failed to send ads to {uid}: {e}")
 
     tasks = [asyncio.create_task(send_ad(row["user_id"])) for row in all_users]
-    await run_tasks_in_batches(tasks)
+    await asyncio.gather(*tasks)
 
-    
     await update.message.reply_text("✅ Sponsored ad sent to all users.")
 
 

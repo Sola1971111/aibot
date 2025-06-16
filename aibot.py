@@ -1131,6 +1131,44 @@ async def handle_view_rollover_p(update: Update, context: ContextTypes.DEFAULT_T
 
 app.add_handler(MessageHandler(filters.TEXT & filters.Regex("📈 2 Odds Rollover"), handle_view_rollover_p))
 
+async def start_vip_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Prompt admin to upload a photo for VIP members."""
+    user_id = update.effective_user.id
+    if user_id != ADMIN_ID:
+        return await update.message.reply_text("⛔ You're not authorized to broadcast.")
+
+    context.user_data["vip_broadcast"] = True
+    await update.message.reply_text("📸 Send the photo with caption for VIP users (use \\n for new lines)")
+
+
+async def handle_vip_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Send the uploaded photo and caption to all active VIP members."""
+    if not context.user_data.pop("vip_broadcast", None):
+        return
+
+    caption = (update.message.caption or "").replace("\\n", "\n")
+    file_id = update.message.photo[-1].file_id
+
+    cursor.execute("SELECT user_id FROM paid_predictions WHERE expires_at > NOW()")
+    vip_users = cursor.fetchall()
+
+    async def send(uid):
+        try:
+            await context.bot.send_photo(chat_id=uid, photo=file_id, caption=caption)
+            return True
+        except Exception as e:
+            logging.warning("Failed to send VIP photo to %s: %s", uid, e)
+            return False
+
+    tasks = [send(row["user_id"]) for row in vip_users]
+    results = await run_tasks_in_batches(tasks)
+    sent = sum(1 for r in results if r is True)
+
+    await update.message.reply_text(f"✅ VIP photo broadcast sent to {sent} users.")
+
+
+app.add_handler(CommandHandler("vipbroadcast", start_vip_broadcast))
+
 
 async def handle_photos(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -1143,6 +1181,8 @@ async def handle_photos(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await handle_uploaded_testimony(update, context)
     elif user_id == ADMIN_ID and context.user_data.get("sponsor_broadcast"):
         await handle_sponsored_photo(update, context)
+    elif user_id == ADMIN_ID and context.user_data.get("vip_broadcast"):
+        await handle_vip_photo(update, context)
 
 app.add_handler(MessageHandler(filters.PHOTO, handle_photos))
 

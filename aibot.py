@@ -1315,7 +1315,7 @@ async def handle_sponsored_photo(update: Update, context: ContextTypes.DEFAULT_T
     cursor.execute("SELECT user_id FROM prediction_users")
     all_users = cursor.fetchall()
 
-    async def send_ad(uid):
+    async def send_ad(uid: int):
         try:
             await context.bot.send_photo(
                 chat_id=uid,
@@ -1325,14 +1325,16 @@ async def handle_sponsored_photo(update: Update, context: ContextTypes.DEFAULT_T
                     [[InlineKeyboardButton(button_text, url=url)]]
                 ),
             )
+            return True
         except Exception as e:
-            logging.warning(f"failed to send ads to {uid}: {e}")
+            logging.info("Failed to send ad to %s: %s", uid, e)
+            return False
 
-    tasks = [asyncio.create_task(send_ad(row["user_id"])) for row in all_users]
-    await run_tasks_in_batches(tasks)
+    tasks = [send_ad(row["user_id"]) for row in all_users]
+    results = await run_tasks_in_batches(tasks)
+    sent = sum(1 for r in results if r is True)
 
-    await update.message.reply_text("✅ Sponsored ad sent to all users.")
-
+    await update.message.reply_text(f"✅ Sponsored ad sent to {sent} users.")
 
 app.add_handler(CommandHandler("sponsor", start_sponsor_ad))
 

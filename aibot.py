@@ -1436,7 +1436,7 @@ async def broadcast_week_trial(update: Update, context: ContextTypes.DEFAULT_TYP
             return False
 
     tasks = [asyncio.create_task(send_offer(row["user_id"])) for row in all_users]
-    await run_tasks_in_batches(tasks)
+    await asyncio.gather(*tasks)
 
     await update.message.reply_text("✅ Trial offer broadcast sent.")
 

@@ -278,8 +278,8 @@ async def handle_correct_scores(update: Update, context: ContextTypes.DEFAULT_TY
         row = cursor.fetchone()
         photo = row["file_id"] if row else DEFAULT_SCORE_IMAGE
         text = (
-            "Yesterday correct scores won ✅\n"
-            "Get 95% accurate correct scores + FREE PREDICTION FOR 5000"
+            "Yesterday correct scores won ✅\n\n"
+            "Get 95% accurate correct scores + FREE PREDICTION FOR 5000\n\n"
             "Dont miss out"
         )
         await context.bot.send_photo(

@@ -43,6 +43,8 @@ app = Application.builder().token(TOKEN).build()
 load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL")
 
+# Default promo image for correct scores
+DEFAULT_SCORE_IMAGE = "https://imgur.com/a/Pg1i4oV"
 
 # ✅ Connect to PostgreSQL (Railway)
 conn = psycopg2.connect(
@@ -137,6 +139,23 @@ CREATE TABLE IF NOT EXISTS partner_channels (
 """)
 conn.commit()
 
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS score_image (
+    file_id TEXT
+)
+""")
+conn.commit()
+
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS correct_scores (
+    id SERIAL PRIMARY KEY,
+    image_file_id TEXT,
+    caption TEXT,
+    date DATE
+)
+""")
+conn.commit()
+
 
 # Logging setup
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
@@ -189,15 +208,20 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("💎 Get Premium Prediction", callback_data="subscription")],
         [InlineKeyboardButton("📸 Testimonies from Community", callback_data="view_testimonies")],
         [InlineKeyboardButton("🎯 Today’s Pick", callback_data="view_pick")],
-        [InlineKeyboardButton("📈 2 Odds Rollover", callback_data="view_rollover")]
+        [InlineKeyboardButton("📈 2 Odds Rollover", callback_data="view_rollover")],
+        [InlineKeyboardButton("⚽ Get Correct Scores", callback_data="correct_scores")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
 # Persistent keyboard
     persistent_keyboard = ReplyKeyboardMarkup(
-        [["💎 Get Prediction", "📸 Testimonies"],
-         ["📈 2 Odds Rollover", "🎯 Today’s Pick"]],
-        resize_keyboard=True, one_time_keyboard=False
+        [
+            ["💎 Get Prediction", "📸 Testimonies"],
+            ["📈 2 Odds Rollover", "🎯 Today’s Pick"],
+            ["⚽ Get Correct Scores"]
+        ],
+        resize_keyboard=True,
+        one_time_keyboard=False,
     )
 
     await update.message.reply_text(
@@ -217,6 +241,59 @@ app.add_handler(CommandHandler("start", start))
 import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CommandHandler, ContextTypes
+
+
+async def handle_correct_scores(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show promo or the latest correct scores depending on subscription."""
+    user_id = update.effective_user.id if update.message else update.callback_query.from_user.id
+    if update.callback_query:
+        await update.callback_query.answer()
+
+    cursor.execute(
+        """
+        SELECT expires_at FROM paid_predictions
+        WHERE user_id = %s AND amount = 5000
+        ORDER BY expires_at DESC LIMIT 1
+        """,
+        (user_id,),
+    )
+    row = cursor.fetchone()
+    is_active = row and row["expires_at"] > datetime.now()
+
+    if is_active:
+        cursor.execute(
+            "SELECT image_file_id, caption FROM correct_scores ORDER BY date DESC LIMIT 1"
+        )
+        row = cursor.fetchone()
+        if row:
+            await context.bot.send_photo(
+                chat_id=user_id,
+                photo=row["image_file_id"],
+                caption=row["caption"] or ""
+            )
+        else:
+            await context.bot.send_message(chat_id=user_id, text="⚠️ No correct scores uploaded yet.")
+    else:
+        cursor.execute("SELECT file_id FROM score_image LIMIT 1")
+        row = cursor.fetchone()
+        photo = row["file_id"] if row else DEFAULT_SCORE_IMAGE
+        text = (
+            "Yesterday correct scores won ✅\n"
+            "Get 95% accurate correct scores + FREE PREDICTION FOR 5000"
+            "Dont miss out"
+        )
+        await context.bot.send_photo(
+            chat_id=user_id,
+            photo=photo,
+            caption=text,
+            reply_markup=InlineKeyboardMarkup(
+                [[InlineKeyboardButton("Pay 5000 to Unlock", callback_data="sub_5000")]]
+            ),
+        )
+
+
+app.add_handler(CallbackQueryHandler(handle_correct_scores, pattern="^correct_scores$"))
+app.add_handler(MessageHandler(filters.TEXT & filters.Regex("⚽ Get Correct Scores"), handle_correct_scores))
 
 
 async def won_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -539,6 +616,8 @@ async def handle_subscription_payment(update: Update, context: ContextTypes.DEFA
         duration = 30
     elif plan == 25000:
         duration = 90
+    elif plan == 5000:
+        duration = 1
     elif plan == 2500:
         duration = 7
     elif plan == 1200:
@@ -1487,6 +1566,79 @@ async def broadcast_to_free_users(update: Update, context: ContextTypes.DEFAULT_
 
 
 app.add_handler(MessageHandler(filters.TEXT & filters.Regex(r"^/broadcastfree\|"), broadcast_to_free_users))
+
+async def start_scores_upload(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Begin the correct scores upload flow."""
+    if update.effective_user.id != ADMIN_ID:
+        return await update.message.reply_text("⛔ You're not authorized.")
+    awaiting_scores_upload.add(update.effective_user.id)
+    await update.message.reply_text("📸 Send today\'s correct scores image.")
+
+
+async def save_scores(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id not in awaiting_scores_upload:
+        return
+    awaiting_scores_upload.remove(update.effective_user.id)
+    try:
+        file_id = update.message.photo[-1].file_id
+    except Exception:
+        return await update.message.reply_text("❌ Couldn't read the image.")
+    caption = update.message.caption or ""
+    today = date.today()
+    cursor.execute("DELETE FROM correct_scores WHERE date = %s", (today,))
+    cursor.execute(
+        "INSERT INTO correct_scores (image_file_id, caption, date) VALUES (%s, %s, %s)",
+        (file_id, caption, today),
+    )
+    conn.commit()
+
+    cursor.execute(
+        "SELECT user_id FROM paid_predictions WHERE expires_at > NOW() AND amount = 5000"
+    )
+    users = cursor.fetchall()
+    tasks = [
+        context.bot.send_photo(chat_id=row["user_id"], photo=file_id, caption=caption)
+        for row in users
+    ]
+    if tasks:
+        await run_tasks_in_batches(tasks)
+
+    await context.bot.send_message(
+        chat_id=CHANNEL_ID,
+        text="📢 Today AI correct scores uploaded!",
+        reply_markup=InlineKeyboardMarkup(
+            [[InlineKeyboardButton("⚽ Get Correct Scores Now", url=f"https://t.me/{YOUR_BOT_USERNAME}")]]
+        ),
+    )
+
+    await update.message.reply_text("✅ Correct scores sent to subscribers and posted in channel.")
+
+
+async def change_score_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Prompt admin to upload a new promo image for correct scores."""
+    if update.effective_user.id != ADMIN_ID:
+        return await update.message.reply_text("⛔ You're not authorized.")
+    awaiting_score_image.add(update.effective_user.id)
+    await update.message.reply_text("📸 Send the new promo image for correct scores.")
+
+
+async def save_score_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id not in awaiting_score_image:
+        return
+    awaiting_score_image.remove(update.effective_user.id)
+    try:
+        file_id = update.message.photo[-1].file_id
+    except Exception:
+        return await update.message.reply_text("❌ Couldn't read the image.")
+
+    cursor.execute("DELETE FROM score_image")
+    cursor.execute("INSERT INTO score_image (file_id) VALUES (%s)", (file_id,))
+    conn.commit()
+    await update.message.reply_text("✅ Promo image updated.")
+
+app.add_handler(CommandHandler("scores", start_scores_upload))
+app.add_handler(CommandHandler("change", change_score_image))
+
 
 # Support message text
 SUPPORT_MESSAGE = (

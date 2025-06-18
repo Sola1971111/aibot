@@ -1068,6 +1068,8 @@ async def upload_today_rollover(update: Update, context: ContextTypes.DEFAULT_TY
 
 
 awaiting_rollover = set()
+awaiting_score_image = set()
+awaiting_scores_upload = set()
 
 app.add_handler(CommandHandler("rollover", upload_today_rollover))
 
@@ -1256,6 +1258,10 @@ async def handle_photos(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await save_today_image(update, context)
     if user_id in awaiting_rollover:
         await save_today_rollover(update, context)
+    if user_id in awaiting_score_image:
+        await save_score_image(update, context)
+    if user_id in awaiting_scores_upload:
+        await save_scores(update, context)
     elif context.user_data.get(f"uploading_testimony_{user_id}"):
         await handle_uploaded_testimony(update, context)
     elif user_id == ADMIN_ID and context.user_data.get("sponsor_broadcast"):

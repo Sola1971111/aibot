@@ -278,16 +278,16 @@ async def handle_correct_scores(update: Update, context: ContextTypes.DEFAULT_TY
         row = cursor.fetchone()
         photo = row["file_id"] if row else DEFAULT_SCORE_IMAGE
         text = (
-            "Yesterday correct scores won ✅\n\n"
-            "Get 95% accurate correct scores + FREE PREDICTION FOR 5000\n\n"
-            "Dont miss out"
+            "🎯 Yesterday’s Correct Scores HIT! 💥\n\n"
+            "⚽ 95% accurate correct scores + FREE PREDICTION \n\n"
+            "🎟️ Get 3 Days of Correct Score Access for just ₦5,000!\n\n"
         )
         await context.bot.send_photo(
             chat_id=user_id,
             photo=photo,
             caption=text,
             reply_markup=InlineKeyboardMarkup(
-                [[InlineKeyboardButton("Pay 5000 to Unlock", callback_data="sub_5000")]]
+                [[InlineKeyboardButton("💳 Pay 5000 to Unlock", callback_data="sub_5000")]]
             ),
         )
 

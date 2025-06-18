@@ -1580,7 +1580,7 @@ REMINDER_MORNING = (
     "I’ve been calculating 2.5 goals in my sleep and you still haven’t subscribed 😩\n\n"
     "📉 While others are cashing out, you're here breaking my AI heart 💔\n\n"
     "🙏 Try me today. I promise I won’t let you down.\n"
-    "I'm the best AI... pick me. Please. 😭"
+    "I'm the best AI... pick me."
 )
 
 REMINDER_AFTERNOON = (
@@ -1631,9 +1631,9 @@ async def night_reminder(context: ContextTypes.DEFAULT_TYPE):
     await send_free_user_reminder(context, REMINDER_NIGHT)
 
 
-job_queue.run_daily(morning_reminder, time=time(hour=10, minute=0))
+
 job_queue.run_daily(afternoon_reminder, time=time(hour=15, minute=0))
-job_queue.run_daily(night_reminder, time=time(hour=21, minute=0))
+
 
 from telegram.ext import ApplicationBuilder
 from telegram import BotCommand

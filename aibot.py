@@ -1433,16 +1433,15 @@ async def broadcast_week_trial(update: Update, context: ContextTypes.DEFAULT_TYP
                     [InlineKeyboardButton("🚀 Try Now", callback_data="sub_1200")]
                 ])
             )
-        except Forbidden:
-            logging.info("User %s blocked the bot", uid)
-            return False
-        except Exception as e:
-            logging.warning("Failed to send trial to %s: %s", uid, e)
+            return True
+        except Exception:
             return False
 
     tasks = [send_offer(row["user_id"]) for row in all_users]
-    results = await run_tasks_in_batches(tasks)
-    sent = sum(1 for r in results if r is True)
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    
+    
+    await update.message.reply_text(f"✅ Trial offer broadcast sent.")
 
 app.add_handler(CommandHandler("button1", broadcast_week_trial))
 

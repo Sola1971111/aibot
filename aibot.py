@@ -1409,6 +1409,8 @@ async def handle_discount(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # Register the handler
 app.add_handler(MessageHandler(filters.TEXT & filters.Regex(r"^/discount\|"), handle_discount))
 
+
+from telegram.error import Forbidden
 async def broadcast_week_trial(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Send a one-week trial offer to all non-VIP users."""
     user_id = update.effective_user.id
@@ -1431,14 +1433,16 @@ async def broadcast_week_trial(update: Update, context: ContextTypes.DEFAULT_TYP
                     [InlineKeyboardButton("🚀 Try Now", callback_data="sub_1200")]
                 ])
             )
+        except Forbidden:
+            logging.info("User %s blocked the bot", uid)
+            return False
         except Exception as e:
+            logging.warning("Failed to send trial to %s: %s", uid, e)
             return False
 
     tasks = [send_offer(row["user_id"]) for row in all_users]
-    results = await asyncio.gather(*tasks)
-    
-
-    await update.message.reply_text("✅ Trial offer broadcast sent .")
+    results = await run_tasks_in_batches(tasks)
+    sent = sum(1 for r in results if r is True)
 
 app.add_handler(CommandHandler("button1", broadcast_week_trial))
 

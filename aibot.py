@@ -1495,40 +1495,7 @@ async def handle_discount(update: Update, context: ContextTypes.DEFAULT_TYPE):
 app.add_handler(MessageHandler(filters.TEXT & filters.Regex(r"^/discount\|"), handle_discount))
 
 
-from telegram.error import Forbidden
-async def broadcast_week_trial(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Send a one-week trial offer to all non-VIP users."""
-    user_id = update.effective_user.id
-    if user_id != ADMIN_ID:
-        return await update.message.reply_text("⛔ You're not authorized to broadcast offers.")
 
-    cursor.execute("SELECT user_id FROM prediction_users")
-    all_users = cursor.fetchall()
-
-    async def send_offer(uid):
-        cursor.execute("SELECT expires_at FROM paid_predictions WHERE user_id = %s", (uid,))
-        sub = cursor.fetchone()
-        if sub and sub["expires_at"] > datetime.now():
-            return
-        try:
-            await context.bot.send_message(
-                chat_id=uid,
-                text="✨ Try VIP for Two days for 1200 and boost your wins!",
-                reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("🚀 Try Now", callback_data="sub_1200")]
-                ])
-            )
-            return True
-        except Exception:
-            return False
-
-    tasks = [send_offer(row["user_id"]) for row in all_users]
-    results = await asyncio.gather(*tasks, return_exceptions=True)
-    
-    
-    await update.message.reply_text(f"✅ Trial offer broadcast sent.")
-
-app.add_handler(CommandHandler("button1", broadcast_week_trial))
 
 async def broadcast_to_free_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Broadcast a custom message to all users without an active subscription."""

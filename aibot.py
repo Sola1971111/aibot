@@ -1518,8 +1518,9 @@ async def broadcast_week_trial(update: Update, context: ContextTypes.DEFAULT_TYP
                     [InlineKeyboardButton("🚀 Try Now", callback_data="sub_1200")]
                 ])
             )
+            return True
         except Exception:
-            pass
+            return False
 
     tasks = [send_offer(row["user_id"]) for row in all_users]
     results = await asyncio.gather(*tasks, return_exceptions=True)

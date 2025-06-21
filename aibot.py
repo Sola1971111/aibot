@@ -513,7 +513,7 @@ async def show_subscription_options(update: Update, context: ContextTypes.DEFAUL
         expires_at = row["expires_at"]
         now = datetime.now()
 
-        if expires_at > now and (expires_at - now).days > 2:
+        if expires_at > now and (expires_at - now).days > 1:
             await query.message.reply_text("✅ You already have an active subscription.")
             return
     

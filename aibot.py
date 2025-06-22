@@ -1364,7 +1364,7 @@ app.add_handler(CommandHandler("button", broadcast_week_trial))
 
 from telegram.error import Forbidden
 
-async def broadcast_week_trial(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def broadcast_week_trial1(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Send a one-week trial offer to all non-VIP users."""
     user_id = update.effective_user.id
     if user_id != ADMIN_ID:
@@ -1407,7 +1407,7 @@ async def broadcast_week_trial(update: Update, context: ContextTypes.DEFAULT_TYP
 
     await update.message.reply_text(f"✅ Trial offer broadcast sent to {sent} users.")
 
-app.add_handler(CommandHandler("button2", broadcast_week_trial))
+app.add_handler(CommandHandler("button2", broadcast_week_trial1))
 
 async def  start_sponsor_ad(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Begin the sponsored ad upload flow for all users."""

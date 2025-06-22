@@ -1352,11 +1352,14 @@ async def broadcast_week_trial(update: Update, context: ContextTypes.DEFAULT_TYP
                     [InlineKeyboardButton("🚀 Try Now", callback_data="sub_1200")]
                 ])
             )
-        except Exception:
-            pass
+            return True
+        except Exception as e:
+            logging.info("Failed to send ad to %s: %s", uid, e)
+            return False
 
-    tasks = [asyncio.create_task(send_offer(row["user_id"])) for row in all_users]
-    await asyncio.gather(*tasks)
+    tasks = [send_offer(row["user_id"]) for row in all_users]
+    results = await run_tasks_in_batches(tasks)
+    sent = sum(1 for r in results if r is True)
 
     await update.message.reply_text("✅ Trial offer broadcast sent.")
 

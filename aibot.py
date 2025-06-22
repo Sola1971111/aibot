@@ -1330,37 +1330,6 @@ async def how_to_pay(update: Update, context: ContextTypes.DEFAULT_TYPE):
 app.add_handler(CommandHandler("howtopay", how_to_pay))
 
 
-async def broadcast_week_trial(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Send a one-week trial offer to all non-VIP users."""
-    user_id = update.effective_user.id
-    if user_id != ADMIN_ID:
-        return await update.message.reply_text("⛔ You're not authorized to broadcast offers.")
-
-    cursor.execute("SELECT user_id FROM prediction_users")
-    all_users = cursor.fetchall()
-
-    async def send_offer(uid):
-        cursor.execute("SELECT expires_at FROM paid_predictions WHERE user_id = %s", (uid,))
-        sub = cursor.fetchone()
-        if sub and sub["expires_at"] > datetime.now():
-            return
-        try:
-            await context.bot.send_message(
-                chat_id=uid,
-                text="✨ Try VIP for a week and boost your wins!",
-                reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("🚀 Try Now", callback_data="sub_2500")]
-                ])
-            )
-        except Exception:
-            pass
-
-    tasks = [asyncio.create_task(send_offer(row["user_id"])) for row in all_users]
-    await asyncio.gather(*tasks)
-
-    await update.message.reply_text("✅ Trial offer broadcast sent.")
-
-app.add_handler(CommandHandler("button", broadcast_week_trial))
 
 from telegram.error import Forbidden
 

@@ -1333,7 +1333,50 @@ app.add_handler(CommandHandler("howtopay", how_to_pay))
 
 from telegram.error import Forbidden
 
+async def broadcast_week_trial1(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Send a one-week trial offer to all non-VIP users."""
+    user_id = update.effective_user.id
+    if user_id != ADMIN_ID:
+        return await update.message.reply_text("⛔ You're not authorized to broadcast offers.")
 
+    cursor.execute("SELECT user_id FROM prediction_users")
+    all_users = [row["user_id"] for row in cursor.fetchall()]
+
+    tasks = []
+    for uid in all_users:
+        cursor.execute(
+            "SELECT expires_at FROM paid_predictions WHERE user_id = %s",
+            (uid,),
+        )
+        sub = cursor.fetchone()
+        if sub and sub["expires_at"] > datetime.now():
+            continue
+
+        async def send_offer(uid=uid):
+            try:
+                await context.bot.send_message(
+                    chat_id=uid,
+                    text="✨ Try VIP for a 2 days and boost your wins!",
+                    reply_markup=InlineKeyboardMarkup(
+                        [[InlineKeyboardButton("🚀 Try Now", callback_data="sub_1200")]]
+                    ),
+                )
+                return True
+            except Forbidden:
+                logging.info("User %s blocked the bot", uid)
+                return False
+            except Exception as e:
+                logging.warning("Failed to send trial to %s: %s", uid, e)
+                return False
+
+        tasks.append(send_offer())
+
+    results = await run_tasks_in_batches(tasks)
+    sent = sum(1 for r in results if r is True)
+
+    await update.message.reply_text(f"✅ Trial offer broadcast sent to {sent} users.")
+
+app.add_handler(CommandHandler("button2", broadcast_week_trial1))
 
 async def  start_sponsor_ad(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Begin the sponsored ad upload flow for all users."""

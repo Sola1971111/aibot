@@ -1349,7 +1349,7 @@ async def broadcast_week_trial(update: Update, context: ContextTypes.DEFAULT_TYP
         try:
             await context.bot.send_message(
                 chat_id=uid,
-                text="✨ Try VIP for a 2 days for just 1200 and boost your wins!",
+                text="✨ Try VIP for 2 days for just 1200 and boost your wins!",
                 reply_markup=InlineKeyboardMarkup([
                     [InlineKeyboardButton("🚀 Try Now", callback_data="sub_1200")]
                 ])
@@ -1359,12 +1359,12 @@ async def broadcast_week_trial(update: Update, context: ContextTypes.DEFAULT_TYP
             logging.info(f"Failed to send to {uid}: {e}")
             return False
 
-    tasks = [send_offer(uid) for uid in users]
+    # Use all_users to send offers
+    tasks = [send_offer(uid["user_id"]) for uid in all_users]
     results = await run_tasks_in_batches(tasks)
     sent = sum(1 for r in results if r is True)
 
     await update.message.reply_text(f"✅Discount Broadcast sent to {sent} free users.")
-
 
 app.add_handler(CommandHandler("button", broadcast_week_trial))
 

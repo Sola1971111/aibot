@@ -1462,16 +1462,17 @@ async def handle_discount(update: Update, context: ContextTypes.DEFAULT_TYPE):
         discount_active_until = datetime.now() + timedelta(days=value)
         expires_text = f"{value} day{'s' if value != 1 else ''}"
 
-    cursor.execute("SELECT user_id FROM prediction_users")
-    all_users = cursor.fetchall()
+    cursor.execute(
+        """
+        SELECT user_id FROM prediction_users
+        WHERE user_id NOT IN (
+            SELECT user_id FROM paid_predictions WHERE expires_at > NOW()
+        )
+        """
+    )
+    users = [row["user_id"] for row in cursor.fetchall()]
 
-    async def send_discount(uid):
-        # Check VIP status
-        cursor.execute("SELECT expires_at FROM paid_predictions WHERE user_id = %s", (uid,))
-        sub = cursor.fetchone()
-        if sub and sub["expires_at"] > datetime.now():
-            return  # User already has an active sub
-
+    async def sender(uid: int):
         try:
             await context.bot.send_photo(
                 chat_id=uid,
@@ -1487,17 +1488,20 @@ async def handle_discount(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     [InlineKeyboardButton("💳 Pay ₦6,500 Now", callback_data="sub_6500")]
                 ])
             )
-        except:
-            pass
+            return True
+        except Exception as e:
+            logging.info(f"Failed to send to {uid}: {e}")
+            return False
 
-    # Run all send tasks in parallel
-    tasks = [asyncio.create_task(send_discount(row["user_id"])) for row in all_users]
-    await run_tasks_in_batches(tasks)
+    tasks = [sender(uid) for uid in users]
+    results = await run_tasks_in_batches(tasks)
+    sent = sum(1 for r in results if r is True)
 
-    await update.message.reply_text("✅ Discount broadcast sent to all non-VIP users.")
+    await update.message.reply_text(f"✅ Broadcast sent to {sent} free users.")
 
 # Register the handler
 app.add_handler(MessageHandler(filters.TEXT & filters.Regex(r"^/discount\|"), handle_discount))
+
 
 
 

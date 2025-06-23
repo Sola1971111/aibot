@@ -1330,15 +1330,8 @@ async def how_to_pay(update: Update, context: ContextTypes.DEFAULT_TYPE):
 app.add_handler(CommandHandler("howtopay", how_to_pay))
 
 
-import asyncio
-import logging
-from telegram.error import Forbidden
-from datetime import datetime
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
-from telegram.ext import ContextTypes, CommandHandler
-
 async def broadcast_week_trial(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Send a 2-day trial offer to all non-VIP users fast and safely."""
+    """Send a one-week trial offer to all non-VIP users."""
     user_id = update.effective_user.id
     if user_id != ADMIN_ID:
         return await update.message.reply_text("⛔ You're not authorized to broadcast offers.")
@@ -1347,30 +1340,28 @@ async def broadcast_week_trial(update: Update, context: ContextTypes.DEFAULT_TYP
     all_users = cursor.fetchall()
 
     async def send_offer(uid):
+        cursor.execute("SELECT expires_at FROM paid_predictions WHERE user_id = %s", (uid,))
+        sub = cursor.fetchone()
+        if sub and sub["expires_at"] > datetime.now():
+            return
         try:
-            # Skip if user already has active sub
-            cursor.execute("SELECT expires_at FROM paid_predictions WHERE user_id = %s", (uid,))
-            sub = cursor.fetchone()
-            if sub and sub["expires_at"] > datetime.now():
-                return
-
             await context.bot.send_message(
                 chat_id=uid,
-                text="✨ Try VIP for 2 days at just ₦1,200 and boost your wins!",
+                text="✨ Try VIP for a 2 days for just 1200 and boost your wins!",
                 reply_markup=InlineKeyboardMarkup([
                     [InlineKeyboardButton("🚀 Try Now", callback_data="sub_1200")]
                 ])
             )
-        except Forbidden:
-            logging.info(f"User {uid} has blocked the bot.")
+            return True
         except Exception as e:
-            logging.warning(f"Error sending to {uid}: {e}")
+            logging.info("Failed to send ad to %s: %s", uid, e)
+            return False
 
-    # Launch tasks concurrently for speed
     tasks = [send_offer(row["user_id"]) for row in all_users]
-    await asyncio.gather(*tasks, return_exceptions=True)
+    results = await run_tasks_in_batches(tasks)
+    sent = sum(1 for r in results if r is True)
 
-    await update.message.reply_text("✅ Trial offer broadcast sent to all non-VIP users.")
+    await update.message.reply_text("✅ Trial offer broadcast sent.")
 
 app.add_handler(CommandHandler("button", broadcast_week_trial))
 

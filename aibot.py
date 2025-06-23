@@ -75,6 +75,19 @@ CREATE TABLE IF NOT EXISTS testimonies (
 
 conn.commit()
 
+cursor.execute(
+    """
+    CREATE TABLE IF NOT EXISTS correct_prediction (
+        id SERIAL PRIMARY KEY,
+        user_id BIGINT UNIQUE,
+        amount INTEGER,
+        duration INTEGER,
+        expires_at TIMESTAMP
+    )
+    """
+)
+conn.commit()
+
 cursor.execute("""
     CREATE TABLE IF NOT EXISTS paid_predictions (
         id SERIAL PRIMARY KEY,
@@ -721,28 +734,29 @@ async def check_expiry(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
 
     cursor.execute("SELECT expires_at FROM paid_predictions WHERE user_id = %s", (user_id,))
-    result = cursor.fetchone()
+    vip_row = cursor.fetchone()
+    vip_active = vip_row and vip_row["expires_at"] and vip_row["expires_at"] > datetime.now()
+    vip_days = (vip_row["expires_at"].date() - datetime.now().date()).days if vip_row else 0
 
-    if result and result["expires_at"]:
-        expires_at = result["expires_at"]
-        days_left = (expires_at.date() - datetime.now().date()).days
+    cursor.execute("SELECT expires_at FROM correct_prediction WHERE user_id = %s", (user_id,))
+    score_row = cursor.fetchone()
+    score_active = score_row and score_row["expires_at"] and score_row["expires_at"] > datetime.now()
+    score_days = (score_row["expires_at"].date() - datetime.now().date()).days if score_row else 0
 
-        if days_left > 0:
-            msg = (
-                f"✅ Your VIP subscription is active.\n"
-                f"Expires on *{expires_at.strftime('%Y-%m-%d')}* ({days_left} day(s) left)."
-            )
-            await update.message.reply_text(msg, parse_mode="Markdown")
+    if vip_active or score_active:
+        lines = []
+        if vip_active:
+            lines.append(f"🛡️ VIP Plan: {vip_days} day{'s' if vip_days != 1 else ''} left")
         else:
-            msg = (
-                "⚠️ Your VIP subscription has *expired*.\n"
-                "Click below to renew now."
-            )
-            keyboard = [[InlineKeyboardButton("🔁 Renew Now", callback_data="subscription")]]
-            await update.message.reply_text(msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+            lines.append("🛡️ VIP Plan: ❌ Not Active")
+        if score_active:
+            lines.append(f"🎯 Correct Score Plan: {score_days} day{'s' if score_days != 1 else ''} left")
+        else:
+            lines.append("🎯 Correct Score Plan: ❌ Not Active")
+        await update.message.reply_text("\n".join(lines))
     else:
         msg = (
-            "❌ You don't have an active VIP subscription.\n"
+            "❌ You don't have an active subscription.\n"
             "Click below to subscribe and start receiving premium predictions."
         )
         keyboard = [[InlineKeyboardButton("📥 Subscribe", callback_data="subscription")]]

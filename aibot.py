@@ -1330,6 +1330,43 @@ async def how_to_pay(update: Update, context: ContextTypes.DEFAULT_TYPE):
 app.add_handler(CommandHandler("howtopay", how_to_pay))
 
 
+async def broadcast_week_trial(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Send a one-week trial offer to all non-VIP users."""
+    if update.effective_user.id != ADMIN_ID:
+        return await update.message.reply_text("⛔ You're not authorized to broadcast.")
+
+    cursor.execute(
+        """
+        SELECT user_id FROM prediction_users
+        WHERE user_id NOT IN (
+            SELECT user_id FROM paid_predictions WHERE expires_at > NOW()
+        )
+        """
+    )
+    users = [row["user_id"] for row in cursor.fetchall()]
+
+
+    async def sende(uid: int):
+        try:
+            await context.bot.send_message(
+                chat_id=uid,
+                text="✨ Try VIP for a 2 days for just 1200 and boost your wins!",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("🚀 Try Now", callback_data="sub_1200")]
+                ])
+            )
+            return True
+        except Exception as e:
+            logging.info(f"Failed to send to {uid}: {e}")
+            return False
+
+    tasks = [sende(uid) for uid in users]
+    results = await run_tasks_in_batches(tasks)
+    sent = sum(1 for r in results if r is True)
+
+    await update.message.reply_text(f"✅ Discount sent to {sent} free users.")
+
+app.add_handler(CommandHandler("buttonn", broadcast_week_trial))
 
 
 async def  start_sponsor_ad(update: Update, context: ContextTypes.DEFAULT_TYPE):

@@ -1685,6 +1685,10 @@ async def save_scores(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ),
     )
 
+    # Forward to partner channels
+    await post_to_partner_channels(context, file_id, "🎯 Today's correct scores!")
+
+
     await update.message.reply_text("✅ Correct scores sent to subscribers and posted in channel.")
 
 

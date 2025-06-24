@@ -1430,6 +1430,8 @@ async def broadcast_week_trial(update: Update, context: ContextTypes.DEFAULT_TYP
         SELECT user_id FROM prediction_users
         WHERE user_id NOT IN (
             SELECT user_id FROM paid_predictions WHERE expires_at > NOW()
+            UNION
+            SELECT user_id FROM correct_prediction WHERE expires_at > NOW()
         )
         """
     )
@@ -1557,6 +1559,8 @@ async def handle_discount(update: Update, context: ContextTypes.DEFAULT_TYPE):
         SELECT user_id FROM prediction_users
         WHERE user_id NOT IN (
             SELECT user_id FROM paid_predictions WHERE expires_at > NOW()
+            UNION
+            SELECT user_id FROM correct_prediction WHERE expires_at > NOW()
         )
         """
     )

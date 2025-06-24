@@ -271,7 +271,7 @@ async def handle_correct_scores(update: Update, context: ContextTypes.DEFAULT_TY
 
     if is_active:
         cursor.execute(
-            "SELECT image_file_id, caption FROM correct_scores ORDER BY date DESC LIMIT 1"
+            "SELECT image_file_id, caption, date FROM correct_scores ORDER BY date DESC LIMIT 1"
         )
         row = cursor.fetchone()
         today = date.today()

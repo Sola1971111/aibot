@@ -1667,7 +1667,7 @@ async def save_scores(update: Update, context: ContextTypes.DEFAULT_TYPE):
     conn.commit()
 
     cursor.execute(
-        "SELECT user_id FROM paid_predictions WHERE expires_at > NOW() AND amount = 5000"
+        "SELECT user_id FROM correct_prediction WHERE expires_at > NOW()"
     )
     users = cursor.fetchall()
     tasks = [

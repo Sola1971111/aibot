@@ -274,14 +274,18 @@ async def handle_correct_scores(update: Update, context: ContextTypes.DEFAULT_TY
             "SELECT image_file_id, caption FROM correct_scores ORDER BY date DESC LIMIT 1"
         )
         row = cursor.fetchone()
-        if row:
+        today = date.today()
+        if row and row["date"] == today:
             await context.bot.send_photo(
                 chat_id=user_id,
                 photo=row["image_file_id"],
                 caption=row["caption"] or ""
             )
         else:
-            await context.bot.send_message(chat_id=user_id, text="⚠️ No correct scores uploaded yet.")
+            await context.bot.send_message(
+                chat_id=user_id,
+                text="⚠️ Today's games have not been uploaded yet."
+            )
     else:
         cursor.execute("SELECT file_id FROM score_image LIMIT 1")
         row = cursor.fetchone()

@@ -629,7 +629,7 @@ async def handle_subscription_payment(update: Update, context: ContextTypes.DEFA
         duration = 30
     elif plan == 25000:
         duration = 90
-    elif plan == 5000:
+    elif plan in (5000, 3500):
         duration = 3
     elif plan == 2500:
         duration = 7
@@ -696,6 +696,56 @@ app.add_handler(CallbackQueryHandler(cancel_deposit, pattern="^cancel_deposit$")
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from datetime import datetime, timedelta, time
+
+async def handle_correct_discount(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Broadcast a discounted correct-score offer to non-subscribers."""
+    if update.effective_user.id != ADMIN_ID:
+        return await update.message.reply_text("⛔ You're not authorized to send discounts.")
+
+    price = 3500
+
+    cursor.execute(
+        """
+        SELECT user_id FROM prediction_users
+        WHERE user_id NOT IN (
+            SELECT user_id FROM correct_prediction WHERE expires_at > NOW()
+        )
+        """
+    )
+    users = cursor.fetchall()
+
+    cursor.execute("SELECT file_id FROM score_image LIMIT 1")
+    row = cursor.fetchone()
+    photo = row["file_id"] if row else DEFAULT_SCORE_IMAGE
+    text = (
+        "🎯 GET CORRECT SCORES DISCOUNT 💥\n\n"
+        "⚽ 95% accurate correct scores + FREE PREDICTION \n\n"
+        "🎟️ Get 3 Days of Correct Score Access for just ₦3,500!\n\n"
+    )
+
+    async def send(uid: int):
+        try:
+            await context.bot.send_photo(
+                chat_id=uid,
+                photo=photo,
+                caption=text,
+                reply_markup=InlineKeyboardMarkup(
+                    [[InlineKeyboardButton("Pay 3500 Now to Unlock", callback_data="sub_3500")]]
+                ),
+            )
+            return True
+        except Exception as e:
+            logging.info(f"Failed to send to {uid}: {e}")
+            return False
+        
+    tasks = [send(row["user_id"]) for row in users]
+    results = await run_tasks_in_batches(tasks)
+    sent = sum(1 for r in results if r is True)
+
+    await update.message.reply_text(f"✅ Discount sent to {sent} users.")
+
+app.add_handler(CommandHandler("correctdiscount", handle_correct_discount))
+
 
 async def check_sub_expiry(context):
     today = datetime.now().date()

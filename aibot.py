@@ -263,15 +263,11 @@ async def handle_correct_scores(update: Update, context: ContextTypes.DEFAULT_TY
         await update.callback_query.answer()
 
     cursor.execute(
-        """
-        SELECT expires_at FROM paid_predictions
-        WHERE user_id = %s AND amount = 5000
-        ORDER BY expires_at DESC LIMIT 1
-        """,
+        "SELECT expires_at FROM correct_prediction WHERE user_id = %s",
         (user_id,),
     )
     row = cursor.fetchone()
-    is_active = row and row["expires_at"] > datetime.now()
+    is_active = row and row["expires_at"] and row["expires_at"] > datetime.now()
 
     if is_active:
         cursor.execute(
@@ -721,6 +717,26 @@ async def check_sub_expiry(context):
                 InlineKeyboardButton("🔁 Renew Now", callback_data="subscription")
             ]])
         )
+    # Fetch correct-score subscriptions expiring tomorrow
+    cursor.execute(
+        "SELECT user_id, expires_at FROM correct_prediction WHERE DATE(expires_at) = %s",
+        (today + timedelta(days=1),),
+    )
+    score_users = cursor.fetchall()
+
+    for user in score_users:
+        expires_on = user["expires_at"].strftime("%Y-%m-%d")
+        await context.bot.send_message(
+            chat_id=user["user_id"],
+            text=(
+                f"⚠️ Your correct scores access will expire on *{expires_on}*.\n"
+                "Renew now to keep getting correct scores."
+            ),
+            parse_mode="Markdown",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("🔁 Renew Now", callback_data="sub_5000")
+            ]])
+        )
 
 # Schedule this to run daily
 job_queue = app.job_queue
@@ -929,27 +945,32 @@ async def save_today_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # ✅ Send to VIP users (with image)
     try:
         cursor.execute("SELECT user_id FROM paid_predictions WHERE expires_at > NOW()")
-        vip_users = cursor.fetchall()
+        vip_rows = cursor.fetchall()
+        cursor.execute("SELECT user_id FROM correct_prediction WHERE expires_at > NOW()")
+        correct_rows = cursor.fetchall()
 
-        tasks = []
 
-        for user in vip_users:
-            user_id = user["user_id"]
+        user_ids = list(
+            {row["user_id"] for row in vip_rows}
+            | {row["user_id"] for row in correct_rows}
+        )
 
-            task = context.bot.send_photo(
-                chat_id=user_id,
+        tasks = [
+            context.bot.send_photo(
+                chat_id=uid,
                 photo=file_id,
                 caption="🎯 Today's Pick is live!"
             )
-            tasks.append(task)
+            for uid in user_ids
+        ]
 
         # Run all send_photo tasks concurrently
         results = await run_tasks_in_batches(tasks)
 
         # Handle individual failures
-        for user, result in zip(vip_users, results):
+        for uid, result in zip(user_ids, results):
             if isinstance(result, Exception):
-                print(f"❌ Could not send to {user['user_id']}: {result}")
+                print(f"❌ Could not send to {uid}: {result}")
 
         # Also post to partner channels with referral links
         await post_to_partner_channels(context, file_id, "🎯 Today's Premium ticket is live!")
@@ -968,10 +989,22 @@ async def handle_view_pick(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = query.from_user.id
     await query.answer()
 
-    # Check subscription
-    cursor.execute("SELECT expires_at FROM paid_predictions WHERE user_id = %s", (user_id,))
-    row = cursor.fetchone()
-    is_active = row and row["expires_at"] > datetime.now()
+    # Check VIP or correct-score subscription
+    cursor.execute(
+        "SELECT expires_at FROM paid_predictions WHERE user_id = %s",
+        (user_id,),
+    )
+    vip_row = cursor.fetchone()
+    vip_active = vip_row and vip_row["expires_at"] > datetime.now()
+
+    cursor.execute(
+        "SELECT expires_at FROM correct_prediction WHERE user_id = %s",
+        (user_id,),
+    )
+    score_row = cursor.fetchone()
+    score_active = score_row and score_row["expires_at"] > datetime.now()
+
+    is_active = vip_active or score_active
 
     if not is_active:
         await query.message.reply_text(
@@ -1008,10 +1041,22 @@ async def handle_view_pick_p(update: Update, context: ContextTypes.DEFAULT_TYPE)
     user = update.effective_user
     user_id = user.id
 
-    # Check subscription
-    cursor.execute("SELECT expires_at FROM paid_predictions WHERE user_id = %s", (user_id,))
-    row = cursor.fetchone()
-    is_active = row and row["expires_at"] > datetime.now()
+    # Check VIP or correct-score subscription
+    cursor.execute(
+        "SELECT expires_at FROM paid_predictions WHERE user_id = %s",
+        (user_id,),
+    )
+    vip_row = cursor.fetchone()
+    vip_active = vip_row and vip_row["expires_at"] > datetime.now()
+
+    cursor.execute(
+        "SELECT expires_at FROM correct_prediction WHERE user_id = %s",
+        (user_id,),
+    )
+    score_row = cursor.fetchone()
+    score_active = score_row and score_row["expires_at"] > datetime.now()
+
+    is_active = vip_active or score_active
 
     if not is_active:
         await update.message.reply_text(
@@ -1162,10 +1207,21 @@ async def handle_view_rollover(update: Update, context: ContextTypes.DEFAULT_TYP
     await query.answer()
 
     # Check subscription
-    cursor.execute("SELECT expires_at FROM paid_predictions WHERE user_id = %s", (user_id,))
-    row = cursor.fetchone()
-    is_active = row and row["expires_at"] > datetime.now()
+    cursor.execute(
+        "SELECT expires_at FROM paid_predictions WHERE user_id = %s",
+        (user_id,),
+    )
+    vip_row = cursor.fetchone()
+    vip_active = vip_row and vip_row["expires_at"] > datetime.now()
 
+    cursor.execute(
+        "SELECT expires_at FROM correct_prediction WHERE user_id = %s",
+        (user_id,),
+    )
+    score_row = cursor.fetchone()
+    score_active = score_row and score_row["expires_at"] > datetime.now()
+
+    is_active = vip_active or score_active
     if not is_active:
         await query.message.reply_text(
             "❌ You don't have an active subscription.",
@@ -1197,9 +1253,21 @@ async def handle_view_rollover_p(update: Update, context: ContextTypes.DEFAULT_T
     user_id = user.id
 
     # Check subscription
-    cursor.execute("SELECT expires_at FROM paid_predictions WHERE user_id = %s", (user_id,))
-    row = cursor.fetchone()
-    is_active = row and row["expires_at"] > datetime.now()
+    cursor.execute(
+        "SELECT expires_at FROM paid_predictions WHERE user_id = %s",
+        (user_id,),
+    )
+    vip_row = cursor.fetchone()
+    vip_active = vip_row and vip_row["expires_at"] > datetime.now()
+
+    cursor.execute(
+        "SELECT expires_at FROM correct_prediction WHERE user_id = %s",
+        (user_id,),
+    )
+    score_row = cursor.fetchone()
+    score_active = score_row and score_row["expires_at"] > datetime.now()
+
+    is_active = vip_active or score_active
 
     if not is_active:
         await update.message.reply_text(
@@ -1245,24 +1313,28 @@ async def handle_vip_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     file_id = update.message.photo[-1].file_id
 
     cursor.execute("SELECT user_id FROM paid_predictions WHERE expires_at > NOW()")
-    vip_users = cursor.fetchall()
+    vip_rows = cursor.fetchall()
+    cursor.execute("SELECT user_id FROM correct_prediction WHERE expires_at > NOW()")
+    correct_rows = cursor.fetchall()
+
+    user_ids = list(
+        {row["user_id"] for row in vip_rows}
+        | {row["user_id"] for row in correct_rows}
+    )
 
     async def send(uid):
         try:
             await context.bot.send_photo(chat_id=uid, photo=file_id, caption=caption)
             return True
         except Exception as e:
-            logging.warning("Failed to send VIP photo to %s: %s", uid, e)
+            logging.info(f"Failed to send to {uid}: {e}")
             return False
 
-    tasks = [send(row["user_id"]) for row in vip_users]
+    tasks = [send(uid) for uid in user_ids]
     results = await run_tasks_in_batches(tasks)
     sent = sum(1 for r in results if r is True)
 
     await update.message.reply_text(f"✅ VIP photo broadcast sent to {sent} users.")
-
-
-app.add_handler(CommandHandler("vipbroadcast", start_vip_broadcast))
 
 
 async def handle_photos(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1537,6 +1609,8 @@ async def broadcast_to_free_users(update: Update, context: ContextTypes.DEFAULT_
         SELECT user_id FROM prediction_users
         WHERE user_id NOT IN (
             SELECT user_id FROM paid_predictions WHERE expires_at > NOW()
+            UNION
+            SELECT user_id FROM correct_prediction WHERE expires_at > NOW()
         )
         """
     )

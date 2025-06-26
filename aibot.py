@@ -530,7 +530,7 @@ async def approve_affiliate(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         await context.bot.send_message(
             chat_id=user_id,
-            text=f"Join our affiliate group: {AFFILIATE_GROUP}",
+            text=f"Join our affiliate group: {YOUR_BOT_USERNAME}",
         )
         ref_link = f"https://t.me/{YOUR_BOT_USERNAME}?start=ref{user_id}"
         await context.bot.send_message(
@@ -578,6 +578,8 @@ app.add_handler(MessageHandler(filters.TEXT, affiliate_conv))
 app.add_handler(CallbackQueryHandler(approve_affiliate, pattern="^affapprove_"))
 app.add_handler(CallbackQueryHandler(reject_affiliate, pattern="^affreject_"))
 app.add_handler(CallbackQueryHandler(affiliate_withdraw, pattern="^aff_withdraw$"))
+app.add_handler(MessageHandler(filters.TEXT & filters.Regex("💸 Ref Dashboard"), monetize))
+
 
 
 async def handle_testimony_approval(update: Update, context: ContextTypes.DEFAULT_TYPE):

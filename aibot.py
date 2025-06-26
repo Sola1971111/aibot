@@ -774,7 +774,6 @@ async def show_subscription_options_p(update: Update, context: ContextTypes.DEFA
     )
 
 app.add_handler(MessageHandler(filters.TEXT & filters.Regex("💎 Get Prediction"), show_subscription_options_p))
-app.add_handler(MessageHandler(filters.TEXT & filters.Regex("💸 Ref Dashboard"), monetize))
 
 import requests
 import os

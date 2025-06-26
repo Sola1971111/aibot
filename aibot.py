@@ -106,6 +106,10 @@ cursor.execute("""
     )
 """)
 conn.commit()
+cursor.execute("ALTER TABLE prediction_users ADD COLUMN IF NOT EXISTS referrer_id BIGINT")
+cursor.execute("ALTER TABLE prediction_users ADD COLUMN IF NOT EXISTS referral_id BIGINT")
+conn.commit()
+
 
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS daily_pick (
@@ -169,6 +173,24 @@ CREATE TABLE IF NOT EXISTS correct_scores (
 """)
 conn.commit()
 
+# Affiliate tables
+cursor.execute(
+    """
+    CREATE TABLE IF NOT EXISTS affiliates (
+        user_id BIGINT PRIMARY KEY,
+        username TEXT,
+        account_details TEXT,
+        channel_id BIGINT,
+        status TEXT DEFAULT 'pending',
+        balance INTEGER DEFAULT 0
+    )
+"""
+)
+conn.commit()
+cursor.execute("ALTER TABLE affiliates ADD COLUMN IF NOT EXISTS username TEXT")
+conn.commit()
+
+
 
 # Logging setup
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
@@ -197,15 +219,28 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     user_id = user_id
     first_name = user.first_name
+
+    # Check for referral argument
+    referrer = None
+    if context.args and context.args[0].startswith("ref"):
+        try:
+            referrer = int(context.args[0][3:])
+        except ValueError:
+            referrer = None
      
     # ✅ Check if user already exists
-    cursor.execute("SELECT user_id FROM prediction_users WHERE user_id = %s", (user_id,))
-    existing_user = cursor.fetchone()
+    cursor.execute(
+        "SELECT referrer_id FROM prediction_users WHERE user_id = %s",
+        (user_id,),
+    )
+    existing = cursor.fetchone()
 
-    if not existing_user:
-        # 👤 Save new user
-        cursor.execute("INSERT INTO prediction_users (user_id) VALUES (%s)", (user_id,))
-        conn.commit()
+    
+    if not existing:
+        cursor.execute(
+            "INSERT INTO prediction_users (user_id, referrer_id, referral_id) VALUES (%s,%s,%s)",
+            (user_id, referrer if referrer != user_id else None, user_id),
+        )
 
         # Update bot description with user count
         await update_bot_description(context)
@@ -215,7 +250,20 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             chat_id=ADMIN_ID,
             text=f"📥 New user started the bot:\n👤 {first_name}\n🆔 {user_id}"
         )
-     
+
+    else:
+        if referrer and referrer != user_id and existing["referrer_id"] is None:
+            cursor.execute(
+                "UPDATE prediction_users SET referrer_id=%s WHERE user_id=%s",
+                (referrer, user_id),
+            )
+            conn.commit()
+
+    cursor.execute("SELECT status FROM affiliates WHERE user_id=%s", (user_id,))
+    aff_row = cursor.fetchone()
+    is_affiliate = aff_row and aff_row["status"] == "approved"
+
+
     keyboard = [
         [InlineKeyboardButton("📢 Join Our Community", url="https://t.me/cooziepicks123")],
         [InlineKeyboardButton("💎 Get Premium Prediction", callback_data="subscription")],
@@ -224,18 +272,21 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("📈 2 Odds Rollover", callback_data="view_rollover")],
         [InlineKeyboardButton("⚽ Get Correct Scores", callback_data="correct_scores")]
     ]
+    if is_affiliate:
+        keyboard.append([InlineKeyboardButton("💸 Ref Dashboard", callback_data="monetize")])
     reply_markup = InlineKeyboardMarkup(keyboard)
 
 # Persistent keyboard
     persistent_keyboard = ReplyKeyboardMarkup(
-        [
-            ["💎 Get Prediction", "📸 Testimonies"],
-            ["📈 2 Odds Rollover", "🎯 Today’s Pick"],
-            ["⚽ Get Correct Scores"]
-        ],
-        resize_keyboard=True,
-        one_time_keyboard=False,
-    )
+    rows = [
+        ["💎 Get Prediction", "📸 Testimonies"],
+        ["📈 2 Odds Rollover", "🎯 Today’s Pick"],
+        ["⚽ Get Correct Scores"]
+    ]
+    if is_affiliate:
+        rows.append(["💸 Ref Dashboard"])
+    persistent_keyboard = ReplyKeyboardMarkup(rows, resize_keyboard=True, one_time_keyboard=False)
+
 
     await update.message.reply_text(
         f"🔥 Welcome to CooziePicks! \n\nYour #1 home for ⚽ premium football predictions, 🤖 expert AI picks, and 📅 daily tips.🎯\n\nWhy thousands trust CooziePicks:\n• 💎 Access VIP football predictions \n• 🤖 Use AI to get smarter betting insights \n• 📈 Boost your wins with our expert-curated picks",
@@ -402,6 +453,132 @@ async def handle_uploaded_testimony(update: Update, context: ContextTypes.DEFAUL
 
 
 CHANNEL_ID = -1002182147196  # Replace with your actual channel ID
+
+
+# --- Affiliate Request Flow ---
+
+async def affiliate(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Start affiliate application."""
+    user_id = update.effective_user.id
+    cursor.execute("SELECT status FROM affiliates WHERE user_id=%s", (user_id,))
+    row = cursor.fetchone()
+    if row:
+        if row["status"] == "approved":
+            await update.message.reply_text(
+                "✅ You are already an affiliate.",
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Open Dashboard", callback_data="monetize")]]),
+            )
+            return
+        if row["status"] == "pending":
+            await update.message.reply_text("⏳ Your affiliate request is pending approval.")
+            return
+
+    await update.message.reply_text(
+        "Please send your account details (e.g. 1234567890 opay) to apply."
+    )
+    context.user_data["aff_step"] = "account"
+
+
+async def affiliate_conv(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    step = context.user_data.get("aff_step")
+    if step != "account":
+        return
+
+    account_details = update.message.text
+    cursor.execute(
+        """
+        INSERT INTO affiliates (user_id, username, account_details, status)
+        VALUES (%s,%s,%s,'pending')
+        ON CONFLICT (user_id) DO UPDATE
+        SET username=EXCLUDED.username,
+            account_details=EXCLUDED.account_details,
+            status='pending'
+        """,
+        (update.effective_user.id, update.effective_user.username, account_details),
+    )
+    conn.commit()
+
+    await update.message.reply_text("✅ Affiliate request submitted for approval.")
+    await context.bot.send_message(
+        ADMIN_ID,
+        (
+            f"Affiliate request from {update.effective_user.full_name} (@{update.effective_user.username})\n"
+            f"ID: {update.effective_user.id}\nAccount: {account_details}"
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            [
+                [
+                    InlineKeyboardButton("Approve", callback_data=f"affapprove_{update.effective_user.id}"),
+                    InlineKeyboardButton("Reject", callback_data=f"affreject_{update.effective_user.id}"),
+                ]
+            ]
+        ),
+    )
+    context.user_data.pop("aff_step", None)
+
+
+async def approve_affiliate(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    user_id = int(query.data.split("_")[1])
+    cursor.execute("UPDATE affiliates SET status='approved' WHERE user_id=%s RETURNING account_details", (user_id,))
+    row = cursor.fetchone()
+    conn.commit()
+    if row:
+        await context.bot.send_message(
+            chat_id=user_id,
+            text="🎉 Your affiliate request has been approved!",
+        )
+        await context.bot.send_message(
+            chat_id=user_id,
+            text=f"Join our affiliate group: {AFFILIATE_GROUP}",
+        )
+        ref_link = f"https://t.me/{YOUR_BOT_USERNAME}?start=ref{user_id}"
+        await context.bot.send_message(
+            chat_id=user_id,
+            text=f"Here is your referral link:\n{ref_link}\nUse /monetize anytime to view your balance.",
+        )
+        await query.message.reply_text("Affiliate approved.")
+
+async def reject_affiliate(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    user_id = int(query.data.split("_")[1])
+    cursor.execute("UPDATE affiliates SET status='rejected' WHERE user_id=%s", (user_id,))
+    conn.commit()
+    await context.bot.send_message(chat_id=user_id, text="❌ Affiliate application failed.")
+    await query.message.reply_text("Affiliate rejected.")
+
+
+async def affiliate_withdraw(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    user_id = query.from_user.id
+    cursor.execute(
+        "SELECT balance, account_details FROM affiliates WHERE user_id=%s AND status='approved'",
+        (user_id,),
+    )
+    row = cursor.fetchone()
+    if not row:
+        return await query.message.reply_text("❌ You're not an affiliate.")
+    if row["balance"] <= 0:
+        return await query.message.reply_text("❌ Your balance is zero.")
+    if datetime.datetime.now().weekday() not in (3, 4):
+        return await query.message.reply_text("❌ Withdrawals are only allowed on Thursday and Friday.")
+    await context.bot.send_message(
+        ADMIN_ID,
+        f"Withdrawal request from {user_id}\nAmount: ₦{row['balance']}\nAccount: {row['account_details']}",
+    )
+    cursor.execute("UPDATE affiliates SET balance=0 WHERE user_id=%s", (user_id,))
+    conn.commit()
+    await query.message.reply_text("✅ Withdrawal request sent.")
+
+
+app.add_handler(CommandHandler("affiliate", affiliate))
+app.add_handler(MessageHandler(filters.TEXT, affiliate_conv))
+app.add_handler(CallbackQueryHandler(approve_affiliate, pattern="^affapprove_"))
+app.add_handler(CallbackQueryHandler(reject_affiliate, pattern="^affreject_"))
+app.add_handler(CallbackQueryHandler(affiliate_withdraw, pattern="^aff_withdraw$"))
 
 
 async def handle_testimony_approval(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -598,7 +775,7 @@ async def show_subscription_options_p(update: Update, context: ContextTypes.DEFA
     )
 
 app.add_handler(MessageHandler(filters.TEXT & filters.Regex("💎 Get Prediction"), show_subscription_options_p))
-
+app.add_handler(MessageHandler(filters.TEXT & filters.Regex("💸 Ref Dashboard"), monetize))
 
 import requests
 import os

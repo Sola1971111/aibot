@@ -578,7 +578,6 @@ app.add_handler(MessageHandler(filters.TEXT, affiliate_conv))
 app.add_handler(CallbackQueryHandler(approve_affiliate, pattern="^affapprove_"))
 app.add_handler(CallbackQueryHandler(reject_affiliate, pattern="^affreject_"))
 app.add_handler(CallbackQueryHandler(affiliate_withdraw, pattern="^aff_withdraw$"))
-app.add_handler(MessageHandler(filters.TEXT & filters.Regex("💸 Ref Dashboard"), monetize))
 
 
 

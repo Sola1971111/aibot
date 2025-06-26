@@ -277,7 +277,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = InlineKeyboardMarkup(keyboard)
 
 # Persistent keyboard
-    persistent_keyboard = ReplyKeyboardMarkup(
     rows = [
         ["💎 Get Prediction", "📸 Testimonies"],
         ["📈 2 Odds Rollover", "🎯 Today’s Pick"],

@@ -1788,54 +1788,80 @@ async def support(update: Update, context: ContextTypes.DEFAULT_TYPE):
 app.add_handler(CommandHandler("support", support))
 
 async def monetize(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Provide referral link and prompt channel setup."""
+    """Show referral link and balance for approved affiliates."""
     user_id = update.effective_user.id
+    cursor.execute(
+        "SELECT status, balance FROM affiliates WHERE user_id=%s",
+        (user_id,),
+    )
+    row = cursor.fetchone()
+    if not row or row["status"] != "approved":
+        return await update.message.reply_text(
+            "❌ You're not an approved affiliate. Use /affiliate to apply."
+        )
+
     ref_link = f"https://t.me/{YOUR_BOT_USERNAME}?start=ref{user_id}"
     keyboard = InlineKeyboardMarkup(
-        [[InlineKeyboardButton("➕ Add to your Channel", callback_data="mon_add")]]
+        [
+            [InlineKeyboardButton("➕ Add to Channel/Group", callback_data="mon_add")],
+            [InlineKeyboardButton("Withdraw", callback_data="aff_withdraw")],
+        ]
     )
     await update.message.reply_text(
-        f"💰 Here is your referral link:\n{ref_link}\n\n Share it and earn 60% commission when a user subscribes using your link!",
+        f"💰 Here is your referral link:\n{ref_link}\nShare it and earn 60% commission!\n\nBalance: ₦{row['balance']}",
         reply_markup=keyboard,
     )
 
 async def monetize_begin(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Ask the user to forward a channel post."""
+    """Ask the user to forward a channel or group post."""
     query = update.callback_query
     await query.answer()
     context.user_data["awaiting_channel_forward"] = True
-    await query.message.reply_text("First make me admin on your channel\n\n Then forward a post from your channel so I can verify admin rights.")
+    await query.message.reply_text(
+        "Please forward a post from your channel or group so I can verify admin rights."
+    )
 
 async def handle_channel_forward(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Store the forwarded channel if the bot is admin there."""
+    """Store the forwarded channel or group if the bot is admin there."""
     if not context.user_data.get("awaiting_channel_forward"):
         return
 
     origin = update.message.forward_origin
     if not origin or not hasattr(origin, "chat"):
-        return await update.message.reply_text("❌ Please forward a post from your channel.")
+        return await update.message.reply_text(
+            "❌ Please forward a post from your channel or group."
+        )
 
-    channel = origin.chat
+    chat = origin.chat
+    if chat.type not in ("channel", "group", "supergroup"):
+        return await update.message.reply_text(
+            "❌ That forward doesn't seem to come from a channel or group."
+        )
     try:
-        admins = await context.bot.get_chat_administrators(channel.id)
+        admins = await context.bot.get_chat_administrators(chat.id)
     except Exception:
-        return await update.message.reply_text("❌ Unable to fetch channel admins. Make sure I'm added as admin.")
+        return await update.message.reply_text(
+            "❌ Unable to fetch admins. Make sure I'm added as an admin."
+        )
 
     if not any(a.user.id == context.bot.id for a in admins):
-        return await update.message.reply_text("❌ Please add me as an admin in that channel and try again.")
+        return await update.message.reply_text(
+            "❌ Please add me as an admin in that channel or group and try again."
+        )
 
     cursor.execute(
         "INSERT INTO partner_channels (channel_id, owner_id) VALUES (%s, %s) ON CONFLICT (channel_id) DO NOTHING",
-        (channel.id, update.effective_user.id),
+        (chat.id, update.effective_user.id),
     )
     conn.commit()
     context.user_data.pop("awaiting_channel_forward", None)
-    await update.message.reply_text("✅ Channel linked! Future posts will include your referral link.")
+    await update.message.reply_text(
+        "✅ Channel or group linked! Future posts will include your referral link."
+    )
 
 app.add_handler(CommandHandler("monetize", monetize))
 app.add_handler(CallbackQueryHandler(monetize_begin, pattern="^mon_add$"))
 app.add_handler(MessageHandler(filters.FORWARDED, handle_channel_forward))
-
 
 win_rate = (
     "🛠 *WIN RATE*\n\n"

@@ -179,6 +179,16 @@ CREATE TABLE IF NOT EXISTS partner_profiles (
 conn.commit()
 
 cursor.execute("""
+CREATE TABLE IF NOT EXISTS referral_clicks (
+    id SERIAL PRIMARY KEY,
+    affiliate_id BIGINT,
+    user_id BIGINT,
+    clicked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)
+""")
+conn.commit()
+
+cursor.execute("""
 CREATE TABLE IF NOT EXISTS withdrawal_requests (
     id SERIAL PRIMARY KEY,
     user_id BIGINT,
@@ -215,9 +225,30 @@ async def update_bot_description(context: ContextTypes.DEFAULT_TYPE):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.chat_id
     user = update.effective_user
-    user_id = user_id
+    user_id = user.id
     first_name = user.first_name
      
+    # Check for referral deep link like /start ref12345
+    ref_id = None
+    if context.args:
+        arg = context.args[0]
+        if arg.startswith("ref") and arg[3:].isdigit():
+            ref_id = int(arg[3:])
+    if ref_id and ref_id != user_id:
+        cursor.execute(
+            "INSERT INTO referral_clicks (affiliate_id, user_id) VALUES (%s, %s)",
+            (ref_id, user_id),
+        )
+        conn.commit()
+        try:
+            await context.bot.send_message(
+                chat_id=ref_id,
+                text=f"👀 Someone clicked your referral link! User {first_name} ({user_id})",
+            )
+        except Exception as e:
+            logging.warning("Failed to notify affiliate %s: %s", ref_id, e)
+
+
     # ✅ Check if user already exists
     cursor.execute("SELECT user_id FROM prediction_users WHERE user_id = %s", (user_id,))
     existing_user = cursor.fetchone()

@@ -234,7 +234,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         arg = context.args[0]
         if arg.startswith("ref") and arg[3:].isdigit():
             ref_id = int(arg[3:])
-    if ref_id and ref_id != user_id and ref_id != 0:
+    if ref_id and ref_id != user_id:
         cursor.execute(
             "INSERT INTO referral_clicks (affiliate_id, user_id) VALUES (%s, %s)",
             (ref_id, user_id),

@@ -1909,7 +1909,7 @@ async def withdraw_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["awaiting_account_details"] = True
         context.user_data["next_action"] = "withdraw"
         return await message.reply_text(
-            "Please send your account details in the format bank,account_number,name"
+            "Please send your account details in the format - bank name,account_number,account name"
         )
 
     context.user_data["withdraw_amount"] = balance
@@ -1932,7 +1932,7 @@ async def withdraw_change(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["awaiting_account_details"] = True
     context.user_data["next_action"] = "withdraw"
     await query.message.reply_text(
-        "Send new account details in the format bank,account_number,name"
+        "Send new account details in the format - Bank name,account_number,account name"
     )
 
 
@@ -1958,7 +1958,7 @@ async def withdraw_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     acc_parts = [p.strip() for p in account.split(",")]
     acc_number = acc_parts[1] if len(acc_parts) > 1 else account
-    await query.message.reply_text("✅ Withdrawal request sent for approval.")
+    await query.edit_message_text("✅ Withdrawal request sent for approval.")
     await context.bot.send_message(
         chat_id=ADMIN_ID,
         text=(

@@ -169,6 +169,26 @@ CREATE TABLE IF NOT EXISTS correct_scores (
 """)
 conn.commit()
 
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS partner_profiles (
+    user_id BIGINT PRIMARY KEY,
+    account_details TEXT,
+    balance INTEGER DEFAULT 0
+)
+""")
+conn.commit()
+
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS withdrawal_requests (
+    id SERIAL PRIMARY KEY,
+    user_id BIGINT,
+    amount INTEGER,
+    account_details TEXT,
+    status TEXT DEFAULT 'pending'
+)
+""")
+conn.commit()
+
 
 # Logging setup
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
@@ -1788,14 +1808,28 @@ async def support(update: Update, context: ContextTypes.DEFAULT_TYPE):
 app.add_handler(CommandHandler("support", support))
 
 async def monetize(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Provide referral link and prompt channel setup."""
+    """Provide referral link and partner options."""
     user_id = update.effective_user.id
+
+    # Ensure profile exists
+    cursor.execute(
+        "INSERT INTO partner_profiles (user_id) VALUES (%s) ON CONFLICT (user_id) DO NOTHING",
+        (user_id,),
+    )
+    conn.commit()
+
+
+
     ref_link = f"https://t.me/{YOUR_BOT_USERNAME}?start=ref{user_id}"
     keyboard = InlineKeyboardMarkup(
-        [[InlineKeyboardButton("➕ Add to your Channel", callback_data="mon_add")]]
+        [
+            [InlineKeyboardButton("➕ Add to your Channel", callback_data="mon_add")],
+            [InlineKeyboardButton("💰 Balance", callback_data="mon_balance")],
+            [InlineKeyboardButton("💸 Withdraw", callback_data="mon_withdraw")],
+        ]
     )
     await update.message.reply_text(
-        f"💰 Here is your referral link:\n{ref_link}\n\n Share it and earn 60% commission when a user subscribes using your link!",
+        f"💰 Here is your referral link:\n{ref_link}\n\nShare it and earn 60% commission when a user subscribes using your link!",
         reply_markup=keyboard,
     )
 
@@ -1835,6 +1869,185 @@ async def handle_channel_forward(update: Update, context: ContextTypes.DEFAULT_T
 app.add_handler(CommandHandler("monetize", monetize))
 app.add_handler(CallbackQueryHandler(monetize_begin, pattern="^mon_add$"))
 app.add_handler(MessageHandler(filters.FORWARDED, handle_channel_forward))
+
+async def show_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    user_id = query.from_user.id
+    cursor.execute(
+        "SELECT balance FROM partner_profiles WHERE user_id = %s",
+        (user_id,),
+    )
+    row = cursor.fetchone()
+    balance = row["balance"] if row else 0
+    await query.message.reply_text(f"💰 Your balance is ₦{balance}")
+
+
+async def withdraw_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    user_id = query.from_user.id
+    cursor.execute(
+        "SELECT balance, account_details FROM partner_profiles WHERE user_id = %s",
+        (user_id,),
+    )
+    row = cursor.fetchone()
+    balance = row["balance"] if row else 0
+    account = row["account_details"] if row else None
+
+    if balance < 5000:
+        return await query.message.reply_text(
+            f"❌ Minimum withdrawal is ₦5000. Your balance is ₦{balance}"
+        )
+
+    if not account:
+        context.user_data["awaiting_account_details"] = True
+        context.user_data["next_action"] = "withdraw"
+        return await query.message.reply_text(
+            "Please send your account details in the format bank,account_number,name"
+        )
+
+    context.user_data["withdraw_amount"] = balance
+    context.user_data["withdraw_account"] = account
+    keyboard = InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("✅ Confirm", callback_data="withdraw_confirm")],
+            [InlineKeyboardButton("Change Details", callback_data="withdraw_change")],
+        ]
+    )
+    await query.message.reply_text(
+        f"You are about to withdraw ₦{balance} to {account}.",
+        reply_markup=keyboard,
+    )
+
+
+async def withdraw_change(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    context.user_data["awaiting_account_details"] = True
+    context.user_data["next_action"] = "withdraw"
+    await query.message.reply_text(
+        "Send new account details in the format bank,account_number,name"
+    )
+
+
+async def withdraw_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    user_id = query.from_user.id
+    amount = context.user_data.get("withdraw_amount")
+    account = context.user_data.get("withdraw_account")
+    if not amount or not account:
+        return await query.message.reply_text("No withdrawal in progress.")
+
+    cursor.execute(
+        "INSERT INTO withdrawal_requests (user_id, amount, account_details) VALUES (%s, %s, %s) RETURNING id",
+        (user_id, amount, account),
+    )
+    req_id = cursor.fetchone()["id"]
+    cursor.execute(
+        "UPDATE partner_profiles SET balance = 0 WHERE user_id = %s",
+        (user_id,),
+    )
+    conn.commit()
+
+    acc_parts = [p.strip() for p in account.split(",")]
+    acc_number = acc_parts[1] if len(acc_parts) > 1 else account
+    await query.message.reply_text("✅ Withdrawal request sent for approval.")
+    await context.bot.send_message(
+        chat_id=ADMIN_ID,
+        text=(
+            f"Withdraw request #{req_id}\nUser: {user_id}\nAmount: ₦{amount}\nAccount: {account}\n{acc_number}"
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            [
+                [
+                    InlineKeyboardButton(
+                        "Accept", callback_data=f"withdraw_accept_{req_id}"
+                    ),
+                    InlineKeyboardButton(
+                        "Reject", callback_data=f"withdraw_reject_{req_id}"
+                    ),
+                ]
+            ]
+        ),
+    )
+
+    context.user_data.pop("withdraw_amount", None)
+    context.user_data.pop("withdraw_account", None)
+
+
+async def handle_account_details(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.user_data.get("awaiting_account_details"):
+        return
+    details = update.message.text.strip()
+    user_id = update.effective_user.id
+    cursor.execute(
+        "INSERT INTO partner_profiles (user_id, account_details) VALUES (%s, %s) "
+        "ON CONFLICT (user_id) DO UPDATE SET account_details = EXCLUDED.account_details",
+        (user_id, details),
+    )
+    conn.commit()
+    context.user_data["awaiting_account_details"] = False
+    if context.user_data.pop("next_action", None) == "withdraw":
+        await withdraw_start(update, context)
+    else:
+        await update.message.reply_text("✅ Account details saved.")
+
+
+async def handle_withdraw_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    data = query.data
+    if data.startswith("withdraw_accept_"):
+        req_id = int(data.split("_")[2])
+        cursor.execute(
+            "SELECT user_id FROM withdrawal_requests WHERE id = %s",
+            (req_id,),
+        )
+        row = cursor.fetchone()
+        if not row:
+            return await query.message.edit_text("Request not found")
+        cursor.execute(
+            "UPDATE withdrawal_requests SET status = 'approved' WHERE id = %s",
+            (req_id,),
+        )
+        conn.commit()
+        await context.bot.send_message(
+            chat_id=row["user_id"], text="✅ Withdrawal approved."
+        )
+        await query.edit_message_text("Withdrawal approved")
+    elif data.startswith("withdraw_reject_"):
+        req_id = int(data.split("_")[2])
+        cursor.execute(
+            "SELECT user_id, amount FROM withdrawal_requests WHERE id = %s",
+            (req_id,),
+        )
+        row = cursor.fetchone()
+        if not row:
+            return await query.message.edit_text("Request not found")
+        cursor.execute(
+            "UPDATE withdrawal_requests SET status = 'rejected' WHERE id = %s",
+            (req_id,),
+        )
+        cursor.execute(
+            "UPDATE partner_profiles SET balance = balance + %s WHERE user_id = %s",
+            (row["amount"], row["user_id"]),
+        )
+        conn.commit()
+        await context.bot.send_message(
+            chat_id=row["user_id"],
+            text="❌ Withdrawal rejected. Money has been refunded to your balance.",
+        )
+        await query.edit_message_text("Withdrawal rejected")
+
+
+app.add_handler(CallbackQueryHandler(show_balance, pattern="^mon_balance$"))
+app.add_handler(CallbackQueryHandler(withdraw_start, pattern="^mon_withdraw$"))
+app.add_handler(CallbackQueryHandler(withdraw_change, pattern="^withdraw_change$"))
+app.add_handler(CallbackQueryHandler(withdraw_confirm, pattern="^withdraw_confirm$"))
+app.add_handler(CallbackQueryHandler(handle_withdraw_admin, pattern="^withdraw_(accept|reject)_"))
+app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_account_details))
 
 
 win_rate = (

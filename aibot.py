@@ -1215,6 +1215,30 @@ async def post_to_partner_channels(context: ContextTypes.DEFAULT_TYPE, file_id: 
     if tasks:
         await run_tasks_in_batches(tasks)
 
+async def broadcast_partner_photo(context: ContextTypes.DEFAULT_TYPE, file_id: str, caption: str):
+    """Send a photo broadcast with referral buttons to all partner channels."""
+    cursor.execute("SELECT channel_id, owner_id FROM partner_channels")
+    partners = cursor.fetchall()
+
+    tasks = []
+    for row in partners:
+        ref_link = f"https://t.me/{YOUR_BOT_USERNAME}?start=ref{row['owner_id']}"
+        markup = InlineKeyboardMarkup(
+            [[InlineKeyboardButton("GET MEGA ODDS ⚽", url=ref_link)]]
+        )
+        tasks.append(
+            context.bot.send_photo(
+                chat_id=row["channel_id"],
+                photo=file_id,
+                caption=caption,
+                parse_mode="Markdown",
+                reply_markup=markup,
+            )
+        )
+
+    if tasks:
+        await run_tasks_in_batches(tasks)
+
 
 async def upload_today_rollover(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -1441,6 +1465,44 @@ async def handle_vip_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(f"✅ VIP photo broadcast sent to {sent} users.")
 
+async def start_partner_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Prompt admin to send a photo and caption for partner channels."""
+    user_id = update.effective_user.id
+    if user_id != ADMIN_ID:
+        return await update.message.reply_text("⛔ You're not authorized to broadcast.")
+
+    context.user_data["partner_broadcast"] = True
+    await update.message.reply_text(
+        "📸 Send the photo with caption for your channel and all partner channels (use \n for new lines)"
+    )
+
+
+async def handle_partner_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Send the uploaded photo and caption to the main and partner channels."""
+    if not context.user_data.pop("partner_broadcast", None):
+        return
+
+    caption = (update.message.caption or "").replace("\\n", "\n")
+    file_id = update.message.photo[-1].file_id
+
+    main_ref = f"https://t.me/{YOUR_BOT_USERNAME}?start=ref{ADMIN_ID}"
+    main_markup = InlineKeyboardMarkup(
+        [[InlineKeyboardButton("GET MEGA ODDS ⚽", url=main_ref)]]
+    )
+    try:
+        await context.bot.send_photo(
+            chat_id=CHANNEL_ID,
+            photo=file_id,
+            caption=caption,
+            parse_mode="Markdown",
+            reply_markup=main_markup,
+        )
+    except Exception as e:
+        logging.warning("Failed to post to main channel: %s", e)
+
+    await broadcast_partner_photo(context, file_id, caption)
+    await update.message.reply_text("✅ Post sent to partner channels.")
+
 
 async def handle_photos(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -1459,6 +1521,8 @@ async def handle_photos(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await handle_sponsored_photo(update, context)
     elif user_id == ADMIN_ID and context.user_data.get("vip_broadcast"):
         await handle_vip_photo(update, context)
+    elif user_id == ADMIN_ID and context.user_data.get("partner_broadcast"):
+        await handle_partner_photo(update, context)
 
 app.add_handler(MessageHandler(filters.PHOTO, handle_photos))
 

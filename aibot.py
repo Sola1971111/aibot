@@ -1884,9 +1884,14 @@ async def show_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def withdraw_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Begin the withdrawal process or resume it after saving details."""
     query = update.callback_query
-    await query.answer()
-    user_id = query.from_user.id
+    message = query.message if query else update.message
+    if query:
+        await query.answer()
+        user_id = query.from_user.id
+    else:
+        user_id = update.effective_user.id
     cursor.execute(
         "SELECT balance, account_details FROM partner_profiles WHERE user_id = %s",
         (user_id,),
@@ -1896,14 +1901,14 @@ async def withdraw_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     account = row["account_details"] if row else None
 
     if balance < 5000:
-        return await query.message.reply_text(
+        return await message.reply_text(
             f"❌ Minimum withdrawal is ₦5000. Your balance is ₦{balance}"
         )
 
     if not account:
         context.user_data["awaiting_account_details"] = True
         context.user_data["next_action"] = "withdraw"
-        return await query.message.reply_text(
+        return await message.reply_text(
             "Please send your account details in the format bank,account_number,name"
         )
 
@@ -1915,7 +1920,7 @@ async def withdraw_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("Change Details", callback_data="withdraw_change")],
         ]
     )
-    await query.message.reply_text(
+    await message.reply_text(
         f"You are about to withdraw ₦{balance} to {account}.",
         reply_markup=keyboard,
     )

@@ -1564,6 +1564,7 @@ async def broadcast_to_ids(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 app.add_handler(MessageHandler(filters.TEXT & filters.Regex(r"^/broadcastids\|"), broadcast_to_ids))
+app.add_handler(CommandHandler("partnerpost", start_partner_broadcast))
 
 
 HOW_TO_PAY_VIDEO = "https://imgur.com/a/AuiRxvb"  # Replace with real file ID or URL

@@ -1485,7 +1485,7 @@ async def handle_partner_photo(update: Update, context: ContextTypes.DEFAULT_TYP
     caption = (update.message.caption or "").replace("\\n", "\n")
     file_id = update.message.photo[-1].file_id
 
-    main_ref = f"https://t.me/{YOUR_BOT_USERNAME}?start=ref{ADMIN_ID}"
+    main_ref = f"https://t.me/{YOUR_BOT_USERNAME}"
     main_markup = InlineKeyboardMarkup(
         [[InlineKeyboardButton("GET MEGA ODDS ⚽", url=main_ref)]]
     )

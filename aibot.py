@@ -199,6 +199,16 @@ CREATE TABLE IF NOT EXISTS withdrawal_requests (
 """)
 conn.commit()
 
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS free_day_logs (
+    id SERIAL PRIMARY KEY,
+    user_id BIGINT,
+    plan TEXT,
+    added_on DATE DEFAULT CURRENT_DATE
+)
+""")
+conn.commit()
+
 
 # Logging setup
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)

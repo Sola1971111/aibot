@@ -318,20 +318,17 @@ from telegram.ext import CommandHandler, ContextTypes
 
 
 async def add_free_day(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Extend subscriptions started three days ago by one day."""
+    """Add a bonus day to all active subscriptions."""
     if update.effective_user.id != ADMIN_ID:
         return await update.message.reply_text("⛔ You're not authorized.")
-
-    target_date = date.today() - timedelta(days=3)
 
     cursor.execute(
         """
         UPDATE paid_predictions
         SET expires_at = expires_at + INTERVAL '1 day'
-        WHERE DATE(expires_at - (duration || ' days')::interval) = %s
+        WHERE expires_at >= NOW()
         RETURNING user_id
-        """,
-        (target_date,),
+        """
     )
     vip_rows = cursor.fetchall()
 
@@ -339,10 +336,9 @@ async def add_free_day(update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
         UPDATE correct_prediction
         SET expires_at = expires_at + INTERVAL '1 day'
-        WHERE DATE(expires_at - (duration || ' days')::interval) = %s
+        WHERE expires_at >= NOW()
         RETURNING user_id
-        """,
-        (target_date,),
+        """
     )
     score_rows = cursor.fetchall()
     conn.commit()

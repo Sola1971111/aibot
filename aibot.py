@@ -307,6 +307,70 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CommandHandler, ContextTypes
 
 
+async def add_free_day(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Extend subscriptions started three days ago by one day."""
+    if update.effective_user.id != ADMIN_ID:
+        return await update.message.reply_text("⛔ You're not authorized.")
+
+    target_date = date.today() - timedelta(days=3)
+
+    cursor.execute(
+        """
+        UPDATE paid_predictions
+        SET expires_at = expires_at + INTERVAL '1 day'
+        WHERE DATE(expires_at - (duration || ' days')::interval) = %s
+        RETURNING user_id
+        """,
+        (target_date,),
+    )
+    vip_rows = cursor.fetchall()
+
+    cursor.execute(
+        """
+        UPDATE correct_prediction
+        SET expires_at = expires_at + INTERVAL '1 day'
+        WHERE DATE(expires_at - (duration || ' days')::interval) = %s
+        RETURNING user_id
+        """,
+        (target_date,),
+    )
+    score_rows = cursor.fetchall()
+    conn.commit()
+
+    for row in vip_rows:
+        cursor.execute(
+            "INSERT INTO free_day_logs (user_id, plan) VALUES (%s, 'vip')",
+            (row["user_id"],),
+        )
+    for row in score_rows:
+        cursor.execute(
+            "INSERT INTO free_day_logs (user_id, plan) VALUES (%s, 'correct')",
+            (row["user_id"],),
+        )
+    conn.commit()
+
+    user_ids = {r["user_id"] for r in vip_rows} | {r["user_id"] for r in score_rows}
+
+    async def notify(uid: int):
+        try:
+            await context.bot.send_message(
+                chat_id=uid,
+                text="🎁 We've added 1 free day to your subscription because there was no game today.",
+            )
+            return True
+        except Exception as e:
+            logging.info(f"Failed to notify {uid}: {e}")
+            return False
+
+    tasks = [notify(uid) for uid in user_ids]
+    results = await run_tasks_in_batches(tasks)
+    sent = sum(1 for r in results if r is True)
+
+    await update.message.reply_text(f"✅ Added a free day for {sent} users.")
+
+
+app.add_handler(CommandHandler("freeday", add_free_day))
+
 async def handle_correct_scores(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Show promo or the latest correct scores depending on subscription."""
     user_id = update.effective_user.id if update.message else update.callback_query.from_user.id

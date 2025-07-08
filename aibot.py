@@ -429,6 +429,23 @@ async def handle_correct_scores(update: Update, context: ContextTypes.DEFAULT_TY
 app.add_handler(CallbackQueryHandler(handle_correct_scores, pattern="^correct_scores$"))
 app.add_handler(MessageHandler(filters.TEXT & filters.Regex("⚽ Get Correct Scores"), handle_correct_scores))
 
+async def handle_refresh(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show quick-access buttons for games."""
+    query = update.callback_query
+    await query.answer()
+    keyboard = [
+        [InlineKeyboardButton("🎯 Today’s Pick", callback_data="view_pick")],
+        [InlineKeyboardButton("📈 2 Odds Rollover", callback_data="view_rollover")],
+        [InlineKeyboardButton("⚽ Get Correct Scores", callback_data="correct_scores")],
+    ]
+    await query.message.reply_text(
+        "Get your games",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+    )
+
+
+app.add_handler(CallbackQueryHandler(handle_refresh, pattern="^refresh$"))
+
 
 async def won_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.id != ADMIN_ID:

@@ -1067,7 +1067,28 @@ async def check_sub_expiry(context):
                 InlineKeyboardButton("🔁 Renew Now", callback_data="sub_5000")
             ]])
         )
+    
+    # Fetch aviator subscriptions expiring tomorrow
+    cursor.execute(
+        "SELECT user_id, expires_at FROM aviator_prediction WHERE DATE(expires_at) = %s",
+        (today + timedelta(days=1),),
+    )
+    aviator_users = cursor.fetchall()
 
+    for user in aviator_users:
+        expires_on = user["expires_at"].strftime("%Y-%m-%d")
+        await context.bot.send_message(
+            chat_id=user["user_id"],
+            text=(
+                f"⚠️ Your Aviator Predict access will expire on *{expires_on}*.\n"
+                "Renew now to keep getting correct scores."
+            ),
+            parse_mode="Markdown",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("🔁 Renew Now", callback_data="sub_10000")
+            ]])
+        )
+        
 # Schedule this to run daily
 job_queue = app.job_queue
 job_queue.run_daily(check_sub_expiry, time=time(hour=8, minute=0))

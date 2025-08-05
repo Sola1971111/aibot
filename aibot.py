@@ -51,10 +51,10 @@ AVIATOR_PROMO_IMAGE = "https://imgur.com/a/Z2qhSob"
 
 AVIATOR_PROMO_TEXT = (
     "🚀 Win Big with Aviator!\n"
-    "Stop guessing — our AI-powered Aviator predictions give you the best cashout points before the crash.\n"
-    "💰 80% accuracy, tested daily!\n"
+    "Stop guessing our AI-powered Aviator predictions give you the best cashout points before the crash.\n\n"
+    "💰 95% accuracy, tested daily!\n"
     "Tap below to get today’s winning prediction and turn small stakes into BIG wins.\n\n"
-    "👉 Click \"Buy Prediction\" now — don't miss today's round!"
+    "👉 Click the button below don't miss today's round!"
 )
 
 
@@ -958,6 +958,34 @@ async def handle_correct_discount(update: Update, context: ContextTypes.DEFAULT_
     await update.message.reply_text(f"✅ Discount sent to {sent} users.")
 
 app.add_handler(CommandHandler("correctdiscount", handle_correct_discount))
+
+import random
+from datetime import date, time
+from telegram.ext import ContextTypes
+
+async def send_daily_aviator(context: ContextTypes.DEFAULT_TYPE):
+    """Generate and store daily Aviator predictions."""
+    timeslots = ["9AM", "12PM", "3PM", "7PM", "10PM"]
+    numbers = [f"{random.uniform(1, 500):.2f}x {t}" for t in timeslots]
+    text = "⚠️ Only play at the time given in Sportybet only\n" + "\n".join(numbers)
+    today = date.today()
+
+    # assumes `cursor` and `conn` are already defined globally in your code
+    cursor.execute("DELETE FROM aviator_numbers WHERE date = %s", (today,))
+    cursor.execute(
+        "INSERT INTO aviator_numbers (numbers, date) VALUES (%s, %s)",
+        (text, today),
+    )
+    conn.commit()
+
+
+# ---- Scheduling (use your existing job_queue) ----
+# Daily at 00:00 (no timezone)
+job_queue = app.job_queue
+job_queue.run_daily(send_daily_aviator, time=time(hour=0, minute=0), name="aviator_daily")
+
+# Also run once in 10 seconds (for quick test)
+job_queue.run_once(send_daily_aviator, when=10, name="aviator_test_once")
 
 
 async def check_sub_expiry(context):

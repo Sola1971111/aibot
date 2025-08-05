@@ -912,21 +912,6 @@ app.add_handler(CallbackQueryHandler(cancel_deposit, pattern="^cancel_deposit$")
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from datetime import datetime, timedelta, time
 
-async def send_daily_aviator(context: ContextTypes.DEFAULT_TYPE):
-    """Generate and store daily Aviator predictions."""
-    timeslots = ["9AM", "12PM", "3PM", "7PM", "10PM"]
-    numbers = [f"{random.uniform(1, 500):.2f}x {t}" for t in timeslots]
-    text = "\n".join(numbers)
-    today = date.today()
-    cursor.execute("DELETE FROM aviator_numbers WHERE date = %s", (today,))
-    cursor.execute(
-        "INSERT INTO aviator_numbers (numbers, date) VALUES (%s, %s)", (text, today)
-    )
-    conn.commit()
-
-
-job_queue.run_daily(send_daily_aviator, time=time(hour=0, minute=0))
-
 
 async def handle_correct_discount(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Broadcast a discounted correct-score offer to non-subscribers."""

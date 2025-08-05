@@ -1023,10 +1023,6 @@ async def send_daily_aviator(context: ContextTypes.DEFAULT_TYPE):
 job_queue = app.job_queue
 job_queue.run_daily(send_daily_aviator, time=time(hour=0, minute=0), name="aviator_daily")
 
-# Also run once in 10 seconds (for quick test)
-job_queue.run_once(send_daily_aviator, when=10, name="aviator_test_once")
-
-
 async def check_sub_expiry(context):
     today = datetime.now().date()
 

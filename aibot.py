@@ -46,6 +46,20 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 # Default promo image for correct scores
 DEFAULT_SCORE_IMAGE = "https://imgur.com/a/Pg1i4oV"
 
+# Promo assets for Aviator feature
+AVIATOR_PROMO_IMAGE = (
+    "AgACAgQAAxkBAAECtCdokdgAARZ0fUSDSbm6BkU-raVZ_6AAAk7JMRv-"
+    "VYlQ9s1vEijztfwBAAMCAAN4AAM2BA"
+)
+AVIATOR_PROMO_TEXT = (
+    "🚀 Win Big with Aviator!\n"
+    "Stop guessing — our AI-powered Aviator predictions give you the best cashout points before the crash.\n"
+    "💰 80% accuracy, tested daily!\n"
+    "Tap below to get today’s winning prediction and turn small stakes into BIG wins.\n\n"
+    "👉 Click \"Buy Prediction\" now — don't miss today's round!"
+)
+
+
 # ✅ Connect to PostgreSQL (Railway)
 conn = psycopg2.connect(
     DATABASE_URL,
@@ -86,6 +100,26 @@ cursor.execute(
     )
     """
 )
+conn.commit()
+
+cursor.execute("""
+    CREATE TABLE IF NOT EXISTS aviator_prediction (
+        id SERIAL PRIMARY KEY,
+        user_id BIGINT UNIQUE,
+        amount INTEGER,
+        duration INTEGER,
+        expires_at TIMESTAMP
+    )
+""")
+conn.commit()
+
+cursor.execute("""
+    CREATE TABLE IF NOT EXISTS aviator_numbers (
+        id SERIAL PRIMARY KEY,
+        numbers TEXT,
+        date DATE
+    )
+""")
 conn.commit()
 
 cursor.execute("""
@@ -283,7 +317,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("📸 Testimonies from Community", callback_data="view_testimonies")],
         [InlineKeyboardButton("🎯 Today’s Pick", callback_data="view_pick")],
         [InlineKeyboardButton("📈 2 Odds Rollover", callback_data="view_rollover")],
-        [InlineKeyboardButton("⚽ Get Correct Scores", callback_data="correct_scores")]
+        [InlineKeyboardButton("⚽ Get Correct Scores", callback_data="correct_scores")],
+        [InlineKeyboardButton("✈️ Aviator Predict", callback_data="aviator")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -292,7 +327,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [
             ["💎 Get Prediction", "📸 Testimonies"],
             ["📈 2 Odds Rollover", "🎯 Today’s Pick"],
-            ["⚽ Get Correct Scores"]
+            ["⚽ Get Correct Scores", "✈️ Aviator Predict"],
         ],
         resize_keyboard=True,
         one_time_keyboard=False,
@@ -376,6 +411,46 @@ async def add_free_day(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 app.add_handler(CommandHandler("freeday", add_free_day))
+
+async def handle_aviator(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show Aviator promo or predictions based on subscription."""
+    user_id = update.effective_user.id if update.message else update.callback_query.from_user.id
+    if update.callback_query:
+        await update.callback_query.answer()
+
+    cursor.execute(
+        "SELECT expires_at FROM aviator_prediction WHERE user_id = %s",
+        (user_id,),
+    )
+    row = cursor.fetchone()
+    is_active = row and row["expires_at"] and row["expires_at"] > datetime.now()
+
+    if is_active:
+        cursor.execute(
+            "SELECT numbers, date FROM aviator_numbers ORDER BY date DESC LIMIT 1"
+        )
+        row = cursor.fetchone()
+        today = date.today()
+        if row and row["date"] == today:
+            await context.bot.send_message(chat_id=user_id, text=row["numbers"])
+        else:
+            await context.bot.send_message(
+                chat_id=user_id,
+                text="⚠️ Today's predictions have not been generated yet.",
+            )
+    else:
+        await context.bot.send_photo(
+            chat_id=user_id,
+            photo=AVIATOR_PROMO_IMAGE,
+            caption=AVIATOR_PROMO_TEXT,
+            reply_markup=InlineKeyboardMarkup(
+                [[InlineKeyboardButton("Buy for ₦10,000", callback_data="sub_10000")]]
+            ),
+        )
+
+
+app.add_handler(CallbackQueryHandler(handle_aviator, pattern="^aviator$"))
+app.add_handler(MessageHandler(filters.TEXT & filters.Regex("✈️ Aviator"), handle_aviator))
 
 async def handle_correct_scores(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Show promo or the latest correct scores depending on subscription."""
@@ -771,6 +846,8 @@ async def handle_subscription_payment(update: Update, context: ContextTypes.DEFA
         duration = 3
     elif plan == 2500:
         duration = 7
+    elif plan == 10000:
+        duration = 7
     elif plan == 1200:
         duration = 2
     else:
@@ -834,6 +911,22 @@ app.add_handler(CallbackQueryHandler(cancel_deposit, pattern="^cancel_deposit$")
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from datetime import datetime, timedelta, time
+
+async def send_daily_aviator(context: ContextTypes.DEFAULT_TYPE):
+    """Generate and store daily Aviator predictions."""
+    timeslots = ["9AM", "12PM", "3PM", "7PM", "10PM"]
+    numbers = [f"{random.uniform(1, 500):.2f}x {t}" for t in timeslots]
+    text = "\n".join(numbers)
+    today = date.today()
+    cursor.execute("DELETE FROM aviator_numbers WHERE date = %s", (today,))
+    cursor.execute(
+        "INSERT INTO aviator_numbers (numbers, date) VALUES (%s, %s)", (text, today)
+    )
+    conn.commit()
+
+
+job_queue.run_daily(send_daily_aviator, time=time(hour=0, minute=0))
+
 
 async def handle_correct_discount(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Broadcast a discounted correct-score offer to non-subscribers."""

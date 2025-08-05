@@ -47,10 +47,8 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 DEFAULT_SCORE_IMAGE = "https://imgur.com/a/Pg1i4oV"
 
 # Promo assets for Aviator feature
-AVIATOR_PROMO_IMAGE = (
-    "AgACAgQAAxkBAAECtCdokdgAARZ0fUSDSbm6BkU-raVZ_6AAAk7JMRv-"
-    "VYlQ9s1vEijztfwBAAMCAAN4AAM2BA"
-)
+AVIATOR_PROMO_IMAGE = "https://imgur.com/a/Z2qhSob"
+
 AVIATOR_PROMO_TEXT = (
     "🚀 Win Big with Aviator!\n"
     "Stop guessing — our AI-powered Aviator predictions give you the best cashout points before the crash.\n"
@@ -911,7 +909,6 @@ app.add_handler(CallbackQueryHandler(cancel_deposit, pattern="^cancel_deposit$")
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from datetime import datetime, timedelta, time
-
 
 async def handle_correct_discount(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Broadcast a discounted correct-score offer to non-subscribers."""

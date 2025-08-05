@@ -959,6 +959,45 @@ async def handle_correct_discount(update: Update, context: ContextTypes.DEFAULT_
 
 app.add_handler(CommandHandler("correctdiscount", handle_correct_discount))
 
+async def notify_aviator(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_chat.id != ADMIN_ID:
+        await update.message.reply_text("❌ You are not authorized to send this message.")
+        return
+
+    photo = AVIATOR_PROMO_IMAGE
+    text = (
+        "🚨🔥 NEW UPDATE GUYS! 🔥🚨\n"
+        "🎯 Daily Aviator Predictions Are HERE! 🎯\n"
+        "💡 No more guessing,get 5 hot crash points for the day:\n"
+        "🕘 9AM | 🕛 12PM | 🕒 3PM | 🕖 7PM | 🕙 10PM\n\n"
+        "⚠️ Play ONLY at the given time in Sportybet\n"
+        "💰 Win smart, win BIG!\n\n"
+        "Click /start to see feature"
+    )
+
+    cursor.execute("SELECT user_id FROM prediction_users")
+    users = cursor.fetchall()
+
+    async def send(uid: int):
+        try:
+            await context.bot.send_photo(
+                chat_id=uid,
+                photo=photo,
+                caption=text,
+            )
+            return True
+        except Exception as e:
+            logging.info(f"Failed to send to {uid}: {e}")
+            return False
+
+    tasks = [send(row["user_id"]) for row in users]
+    results = await run_tasks_in_batches(tasks)
+    sent = sum(1 for r in results if r is True)
+
+    await update.message.reply_text(f"✅ message sent to {sent} users.")
+
+app.add_handler(CommandHandler("notifyaviator", notify_aviator))
+
 import random
 from datetime import date, time
 from telegram.ext import ContextTypes

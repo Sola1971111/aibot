@@ -855,8 +855,9 @@ async def handle_subscription_payment(update: Update, context: ContextTypes.DEFA
     await query.message.reply_text(
         (
             f"Please transfer ₦{plan} to the account below:\n\n"
-            "Account Name: Cooziepicks\n"
+            "Bank Name: MoniePoint\n"
             "Account Number: 9031421388\n"
+            "Account Name: Cooziepicks\n"
             f"Amount: ₦{plan}\n\n"
             "After payment, click the button below and upload your receipt."
         ),

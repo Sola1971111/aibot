@@ -851,52 +851,32 @@ async def handle_subscription_payment(update: Update, context: ContextTypes.DEFA
     else:
         duration = 30
 
-    email = f"user_{user_id}@cooziepicks.com"
-    headers = {
-        "Authorization": f"Bearer {os.getenv('PAYSTACK_SECRET_KEY')}",
-        "Content-Type": "application/json"
-    }
-
-    payload = {
-        "email": email,
-        "amount": plan * 100,
-        "callback_url": "https://cooziepicks.com/thank-you/",  # or your deployed webhook URL
-        "metadata": {
-            "user_id": user_id,
-            "plan": plan,
-            "duration": duration,
-            "type": "vip"
-        }
-    }
-
-    response = requests.post("https://api.paystack.co/transaction/initialize", json=payload, headers=headers)
-    data = response.json()
-
-    if data.get("status"):
-        payment_url = data["data"]["authorization_url"]
-        # Track generated payment link
-        cursor.execute(
-            """
-            INSERT INTO payment_links (user_id, plan, created_at)
-            VALUES (%s, %s, NOW())
-            ON CONFLICT (user_id) DO UPDATE
-            SET plan = EXCLUDED.plan,
-                created_at = EXCLUDED.created_at
-            """,
-            (user_id, plan)
-        )
-        conn.commit()
-        await query.message.reply_text(
-            f"💳 Click below to complete your VIP subscription of ₦{plan}.",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("Pay Now", url=payment_url)],
-                [InlineKeyboardButton("❌ Cancel", callback_data="cancel_deposit")]
-            ])
-        )
-    else:
-        await query.message.reply_text("❌ Failed to create payment link. Please try again later.")
+    # Manual payment instructions instead of Paystack link
+    await query.message.reply_text(
+        (
+            f"Please transfer ₦{plan} to the account below:\n\n"
+            "Account Name: Cooziepicks\n"
+            "Account Number: 9031421388\n"
+            f"Amount: ₦{plan}\n\n"
+            "After payment, click the button below and upload your receipt."
+        ),
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("Click if you have paid", callback_data=f"paid_{plan}_{duration}")],
+            [InlineKeyboardButton("❌ Cancel", callback_data="cancel_deposit")],
+        ]),
+    )
 
 app.add_handler(CallbackQueryHandler(handle_subscription_payment, pattern="^sub_"))
+
+async def confirm_manual_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    _, amount, duration = query.data.split("_")
+    context.user_data["awaiting_receipt"] = {"amount": int(amount), "duration": int(duration)}
+    await query.message.reply_text("📸 Please upload your payment receipt.")
+
+app.add_handler(CallbackQueryHandler(confirm_manual_payment, pattern="^paid_"))
+
 
 async def cancel_deposit(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Cancels the deposit flow by deleting the message."""
@@ -906,6 +886,114 @@ async def cancel_deposit(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.pop("awaiting_deposit", None)  # Clear state if used
 
 app.add_handler(CallbackQueryHandler(cancel_deposit, pattern="^cancel_deposit$"))
+
+async def handle_receipt_upload(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    data = context.user_data.pop("awaiting_receipt", None)
+    if not data:
+        return
+    user_id = update.effective_user.id
+    amount = data["amount"]
+    duration = data["duration"]
+    file_id = update.message.photo[-1].file_id
+    caption = (
+        f"Payment receipt\nUser ID: {user_id}\nAmount: ₦{amount}\nDuration: {duration} days"
+    )
+    keyboard = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton(
+                "Accept",
+                callback_data=f"receipt_accept_{user_id}_{amount}_{duration}",
+            ),
+            InlineKeyboardButton(
+                "Reject", callback_data=f"receipt_reject_{user_id}"
+            ),
+        ]
+    ])
+    await context.bot.send_photo(
+        chat_id=ADMIN_ID,
+        photo=file_id,
+        caption=caption,
+        reply_markup=keyboard,
+    )
+    await update.message.reply_text(
+        "🧾 Receipt received! Awaiting confirmation from admin."
+    )
+
+
+async def handle_receipt_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    parts = query.data.split("_")
+    action = parts[1]
+    user_id = int(parts[2])
+
+    if action == "accept":
+        amount = int(parts[3])
+        duration_days = int(parts[4])
+        expires_at = datetime.now() + timedelta(days=duration_days)
+
+        if amount in (5000, 3500):
+            cursor.execute(
+                """
+                INSERT INTO correct_prediction (user_id, amount, duration, expires_at)
+                VALUES (%s, %s, %s, %s)
+                ON CONFLICT (user_id) DO UPDATE
+                SET amount = EXCLUDED.amount, duration = EXCLUDED.duration, expires_at = EXCLUDED.expires_at
+                """,
+                (user_id, amount, duration_days, expires_at),
+            )
+        elif amount == 10000:
+            cursor.execute(
+                """
+                INSERT INTO aviator_prediction (user_id, amount, duration, expires_at)
+                VALUES (%s, %s, %s, %s)
+                ON CONFLICT (user_id) DO UPDATE
+                SET amount = EXCLUDED.amount, duration = EXCLUDED.duration, expires_at = EXCLUDED.expires_at
+                """,
+                (user_id, amount, duration_days, expires_at),
+            )
+        else:
+            cursor.execute(
+                """
+                INSERT INTO paid_predictions (user_id, amount, duration, expires_at)
+                VALUES (%s, %s, %s, %s)
+                ON CONFLICT (user_id) DO UPDATE
+                SET amount = EXCLUDED.amount, duration = EXCLUDED.duration, expires_at = EXCLUDED.expires_at
+                """,
+                (user_id, amount, duration_days, expires_at),
+            )
+        conn.commit()
+
+        if amount == 10000:
+            msg = (
+                f"💎 Avaitor Prediction Subscription Active!\nDuration: {duration_days} days"
+                f"\nExpires: {expires_at.strftime('%Y-%m-%d')}"
+            )
+            reply_markup = InlineKeyboardMarkup(
+                [[InlineKeyboardButton("✈️ See Prediction", callback_data="aviator")]]
+            )
+        else:
+            msg = (
+                f"💎 VIP Prediction Subscription Active!\nDuration: {duration_days} days"
+                f"\nExpires: {expires_at.strftime('%Y-%m-%d')}"
+            )
+            reply_markup = InlineKeyboardMarkup(
+                [[InlineKeyboardButton("⚽ Get Your Games", callback_data="refresh")]]
+            )
+        await context.bot.send_message(
+            chat_id=user_id, text=msg, reply_markup=reply_markup
+        )
+        await query.edit_message_caption(query.message.caption + "\n✅ Accepted")
+    else:
+        await context.bot.send_message(
+            chat_id=user_id,
+            text="❌ Payment was rejected. Please try again.",
+        )
+        await query.edit_message_caption(query.message.caption + "\n❌ Rejected")
+
+
+app.add_handler(CallbackQueryHandler(handle_receipt_action, pattern="^receipt_"))
+
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from datetime import datetime, timedelta, time
@@ -1753,6 +1841,10 @@ async def handle_partner_photo(update: Update, context: ContextTypes.DEFAULT_TYP
 async def handle_photos(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
 
+    if context.user_data.get("awaiting_receipt"):
+        await handle_receipt_upload(update, context)
+        return
+    
     if user_id in awaiting_upload:
         await save_today_image(update, context)
     if user_id in awaiting_rollover:

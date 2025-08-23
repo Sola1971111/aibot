@@ -855,17 +855,23 @@ async def handle_subscription_payment(update: Update, context: ContextTypes.DEFA
     await query.message.reply_text(
         (
             f"Please transfer ₦{plan} to the account below:\n\n"
-            "Bank Name: MoniePoint\n"
-            "Account Number: 9031421388\n"
             "Account Name: Cooziepicks\n"
+            "Account Number: <code>9031421388</code> 📋\n"
             f"Amount: ₦{plan}\n\n"
             "After payment, click the button below and upload your receipt."
         ),
+        parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("✅ Click if you have paid", callback_data=f"paid_{plan}_{duration}")],
+            [
+                InlineKeyboardButton(
+                    "✅ Click if you have paid",
+                    callback_data=f"paid_{plan}_{duration}",
+                )
+            ],
             [InlineKeyboardButton("❌ Cancel", callback_data="cancel_deposit")],
         ]),
     )
+
 
 app.add_handler(CallbackQueryHandler(handle_subscription_payment, pattern="^sub_"))
 

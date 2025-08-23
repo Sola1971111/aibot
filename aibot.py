@@ -862,7 +862,7 @@ async def handle_subscription_payment(update: Update, context: ContextTypes.DEFA
             "After payment, click the button below and upload your receipt."
         ),
         reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("Click if you have paid", callback_data=f"paid_{plan}_{duration}")],
+            [InlineKeyboardButton("✅ Click if you have paid", callback_data=f"paid_{plan}_{duration}")],
             [InlineKeyboardButton("❌ Cancel", callback_data="cancel_deposit")],
         ]),
     )

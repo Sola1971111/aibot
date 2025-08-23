@@ -442,7 +442,7 @@ async def handle_aviator(update: Update, context: ContextTypes.DEFAULT_TYPE):
             photo=AVIATOR_PROMO_IMAGE,
             caption=AVIATOR_PROMO_TEXT,
             reply_markup=InlineKeyboardMarkup(
-                [[InlineKeyboardButton("Buy for ₦10,000", callback_data="sub_10000")]]
+                [[InlineKeyboardButton("₦10,000 for 7 days", callback_data="sub_10000")]]
             ),
         )
 
@@ -494,7 +494,7 @@ async def handle_correct_scores(update: Update, context: ContextTypes.DEFAULT_TY
             photo=photo,
             caption=text,
             reply_markup=InlineKeyboardMarkup(
-                [[InlineKeyboardButton("💳 Pay 5000 to Unlock", callback_data="sub_5000")]]
+                [[InlineKeyboardButton("💳 Pay 5000 for 3 daysS", callback_data="sub_5000")]]
             ),
         )
 
@@ -1039,7 +1039,7 @@ async def handle_correct_discount(update: Update, context: ContextTypes.DEFAULT_
                 photo=photo,
                 caption=text,
                 reply_markup=InlineKeyboardMarkup(
-                    [[InlineKeyboardButton("Pay 3500 Now to Unlock", callback_data="sub_3500")]]
+                    [[InlineKeyboardButton("Pay 3500 for 3 days", callback_data="sub_3500")]]
                 ),
             )
             return True

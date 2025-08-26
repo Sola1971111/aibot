@@ -274,6 +274,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ref_id = None
     if context.args:
         arg = context.args[0]
+        if arg == "monetize":
+            return await monetize(update, context)
         if arg.startswith("ref") and arg[3:].isdigit():
             ref_id = int(arg[3:])
     if ref_id and ref_id != user_id:

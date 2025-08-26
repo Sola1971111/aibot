@@ -879,8 +879,26 @@ app.add_handler(CallbackQueryHandler(handle_subscription_payment, pattern="^sub_
 async def confirm_manual_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
+    user_id = update.effective_user.id
     _, amount, duration = query.data.split("_")
-    context.user_data["awaiting_receipt"] = {"amount": int(amount), "duration": int(duration)}
+    amount = int(amount)
+    duration = int(duration)
+
+    # Check if user already has a pending receipt
+    cursor.execute("SELECT id FROM unpaid_payments WHERE user_id = %s", (user_id,))
+    if cursor.fetchone():
+        await query.message.reply_text(
+            "🧾 You still have a receipt awaiting confirmation. Please wait for the admin to respond."
+        )
+        return
+
+    cursor.execute(
+        "INSERT INTO unpaid_payments (user_id, plan, created_at) VALUES (%s, %s, NOW())",
+        (user_id, amount),
+    )
+    conn.commit()
+
+    context.user_data["awaiting_receipt"] = {"amount": amount, "duration": duration}
     await query.message.reply_text("📸 Please upload your payment receipt.")
 
 app.add_handler(CallbackQueryHandler(confirm_manual_payment, pattern="^paid_"))
@@ -972,6 +990,40 @@ async def handle_receipt_action(update: Update, context: ContextTypes.DEFAULT_TY
             )
         conn.commit()
 
+        try:
+            cursor.execute(
+                """
+                SELECT affiliate_id 
+                FROM referral_clicks 
+                WHERE user_id = %s AND affiliate_id != 0 
+                ORDER BY clicked_at LIMIT 1
+                """,
+                (user_id,),
+            )
+            result = cursor.fetchone()
+            if result:
+                affiliate_id = result["affiliate_id"]
+                commission = int(amount * 0.6)
+                cursor.execute(
+                    """
+                    UPDATE partner_profiles
+                    SET balance = balance + %s
+                    WHERE user_id = %s
+                    """,
+                    (commission, affiliate_id),
+                )
+                notify_message = f"🎉 You just earned ₦{commission} commission from a referral!"
+                await context.bot.send_message(
+                    chat_id=affiliate_id, text=notify_message
+                )
+        except Exception as e:
+            logging.warning(
+                "⚠️ Failed to reward affiliate for user %s: %s", user_id, str(e)
+            )
+
+        cursor.execute("DELETE FROM unpaid_payments WHERE user_id = %s", (user_id,))
+        conn.commit()
+
         if amount == 10000:
             msg = (
                 f"💎 Avaitor Prediction Subscription Active!\nDuration: {duration_days} days"
@@ -998,6 +1050,8 @@ async def handle_receipt_action(update: Update, context: ContextTypes.DEFAULT_TY
             text="❌ Payment was rejected. Please try again.",
         )
         await query.edit_message_caption(query.message.caption + "\n❌ Rejected")
+        cursor.execute("DELETE FROM unpaid_payments WHERE user_id = %s", (user_id,))
+        conn.commit()
 
 
 app.add_handler(CallbackQueryHandler(handle_receipt_action, pattern="^receipt_"))

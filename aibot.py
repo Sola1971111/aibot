@@ -1085,7 +1085,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from datetime import datetime, timedelta, time
 
 async def handle_correct_discount(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Broadcast a discounted correct-score offer to non-subscribers."""
+    """Broadcast aa discounted correct-score offer to non-subscribers."""
     if update.effective_user.id != ADMIN_ID:
         return await update.message.reply_text("⛔ You're not authorized to send discounts.")
 

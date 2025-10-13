@@ -1049,7 +1049,7 @@ async def handle_receipt_action(update: Update, context: ContextTypes.DEFAULT_TY
     else:
         await context.bot.send_message(
             chat_id=user_id,
-            text="❌ Payment was rejected. Please try again.",
+            text="❌ Payment was rejected. Please try again and make sure you upload the receipt in the right amount.",
         )
         await query.edit_message_caption(query.message.caption + "\n❌ Rejected")
         cursor.execute("DELETE FROM unpaid_payments WHERE user_id = %s", (user_id,))

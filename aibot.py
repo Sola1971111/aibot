@@ -1059,6 +1059,28 @@ async def handle_receipt_action(update: Update, context: ContextTypes.DEFAULT_TY
 app.add_handler(CallbackQueryHandler(handle_receipt_action, pattern="^receipt_"))
 
 
+async def reset_pending_deposits(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Clear all pending manual payment deposits."""
+    if update.effective_user.id != ADMIN_ID:
+        await update.message.reply_text("❌ You are not authorized to use this command.")
+        return
+
+    cursor.execute("SELECT COUNT(*) AS total FROM unpaid_payments")
+    row = cursor.fetchone()
+    pending = row["total"] if row else 0
+
+    cursor.execute("DELETE FROM unpaid_payments")
+    conn.commit()
+
+    await update.message.reply_text(
+        "✅ Cleared all pending deposit submissions." if pending == 0
+        else f"✅ Cleared {pending} pending deposit submission{'s' if pending != 1 else ''}."
+    )
+
+
+app.add_handler(CommandHandler("resetpendingdeposits", reset_pending_deposits))
+
+
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from datetime import datetime, timedelta, time
 

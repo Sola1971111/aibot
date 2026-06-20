@@ -44,10 +44,10 @@ load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 # Default promo image for correct scores
-DEFAULT_SCORE_IMAGE = "https://imgur.com/a/Pg1i4oV"
+DEFAULT_SCORE_IMAGE = "https://ibb.co/zH4kKs2q"
 
 # Promo assets for Aviator feature
-AVIATOR_PROMO_IMAGE = "https://imgur.com/a/Z2qhSob"
+AVIATOR_PROMO_IMAGE = "https://ibb.co/zH4kKs2q"
 
 AVIATOR_PROMO_TEXT = (
     "🚀 Win Big with Aviator!\n"
@@ -643,7 +643,7 @@ async def handle_testimony_approval(update: Update, context: ContextTypes.DEFAUL
         caption = f"🧾 *Testimony from Anonymous*\n\n{row['caption'] or ''}"
 
         reply_markup = InlineKeyboardMarkup([
-            [InlineKeyboardButton("🎯 Get Today’s Games", url="https://t.me/CoozieAIbot")]
+            [InlineKeyboardButton("🎯 Get Today’s Games", url="https://t.me/CooziepickAibot")]
         ])
         
         try:

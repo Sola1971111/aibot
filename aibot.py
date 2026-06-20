@@ -241,6 +241,33 @@ CREATE TABLE IF NOT EXISTS free_day_logs (
 """)
 conn.commit()
 
+cursor.execute("""
+    CREATE TABLE IF NOT EXISTS worldcup_prediction (
+        id SERIAL PRIMARY KEY,
+        user_id BIGINT UNIQUE,
+        amount INTEGER,
+        duration INTEGER,
+        expires_at TIMESTAMP
+    )
+""")
+conn.commit()
+
+cursor.execute("""
+    CREATE TABLE IF NOT EXISTS worldcup_games (
+        id SERIAL PRIMARY KEY,
+        image_file_id TEXT,
+        caption TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+""")
+conn.commit()
+
+cursor.execute("""
+    CREATE TABLE IF NOT EXISTS worldcup_image (
+        file_id TEXT
+    )
+""")
+conn.commit()
 
 # Logging setup
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
@@ -317,8 +344,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("📸 Testimonies from Community", callback_data="view_testimonies")],
         [InlineKeyboardButton("🎯 Today’s Pick", callback_data="view_pick")],
         [InlineKeyboardButton("📈 2 Odds Rollover", callback_data="view_rollover")],
-        [InlineKeyboardButton("⚽ Get Correct Scores", callback_data="correct_scores")],
-        [InlineKeyboardButton("✈️ Aviator Predict", callback_data="aviator")]
+        [InlineKeyboardButton("🏆 World Cup 2026", callback_data="worldcup")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -327,7 +353,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [
             ["💎 Get Prediction", "📸 Testimonies"],
             ["📈 2 Odds Rollover", "🎯 Today’s Pick"],
-            ["⚽ Get Correct Scores", "✈️ Aviator Predict"],
+            ["🏆 World Cup 2026"],
         ],
         resize_keyboard=True,
         one_time_keyboard=False,
@@ -850,6 +876,8 @@ async def handle_subscription_payment(update: Update, context: ContextTypes.DEFA
         duration = 7
     elif plan == 1200:
         duration = 2
+    elif plan == 15000:
+        duration = 36500  # lifetime
     else:
         duration = 30
 
@@ -990,6 +1018,16 @@ async def handle_receipt_action(update: Update, context: ContextTypes.DEFAULT_TY
                 """,
                 (user_id, amount, duration_days, expires_at),
             )
+        elif amount == 15000:
+            cursor.execute(
+                """
+                INSERT INTO worldcup_prediction (user_id, amount, duration, expires_at)
+                VALUES (%s, %s, %s, %s)
+                ON CONFLICT (user_id) DO UPDATE
+                SET amount = EXCLUDED.amount, duration = EXCLUDED.duration, expires_at = EXCLUDED.expires_at
+                """,
+                (user_id, amount, duration_days, expires_at),
+            )
         conn.commit()
 
         try:
@@ -1026,7 +1064,15 @@ async def handle_receipt_action(update: Update, context: ContextTypes.DEFAULT_TY
         cursor.execute("DELETE FROM unpaid_payments WHERE user_id = %s", (user_id,))
         conn.commit()
 
-        if amount == 10000:
+        if amount == 15000:
+            msg = (
+                "🏆 World Cup 2026 Lifetime Access Active!\n"
+                "You now get every World Cup game from the group stage to the final! ⚽"
+            )
+            reply_markup = InlineKeyboardMarkup(
+                [[InlineKeyboardButton("🏆 See World Cup Games", callback_data="worldcup")]]
+            )
+        elif amount == 10000:
             msg = (
                 f"💎 Avaitor Prediction Subscription Active!\nDuration: {duration_days} days"
                 f"\nExpires: {expires_at.strftime('%Y-%m-%d')}"
@@ -1939,6 +1985,10 @@ async def handle_photos(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await save_score_image(update, context)
     if user_id in awaiting_scores_upload:
         await save_scores(update, context)
+    if user_id in awaiting_worldcup:
+        await save_worldcup_game(update, context)
+    if user_id in awaiting_worldcup_image:
+        await save_worldcup_image(update, context)
     elif context.user_data.get(f"uploading_testimony_{user_id}"):
         await handle_uploaded_testimony(update, context)
     elif user_id == ADMIN_ID and context.user_data.get("sponsor_broadcast"):
@@ -1949,6 +1999,182 @@ async def handle_photos(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await handle_partner_photo(update, context)
 
 app.add_handler(MessageHandler(filters.PHOTO, handle_photos))
+
+# ============ WORLD CUP 2026 ============
+
+awaiting_worldcup = set()
+awaiting_worldcup_image = set()
+
+
+async def handle_worldcup(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show World Cup promo, or the latest game (within 24h) for subscribers."""
+    user_id = update.effective_user.id if update.message else update.callback_query.from_user.id
+    if update.callback_query:
+        await update.callback_query.answer()
+
+    cursor.execute("SELECT expires_at FROM worldcup_prediction WHERE user_id = %s", (user_id,))
+    row = cursor.fetchone()
+    is_active = row and row["expires_at"] and row["expires_at"] > datetime.now()
+
+    if is_active:
+        cursor.execute(
+            """
+            SELECT image_file_id, caption FROM worldcup_games
+            WHERE created_at > NOW() - INTERVAL '24 hours'
+            ORDER BY created_at DESC LIMIT 1
+            """
+        )
+        row = cursor.fetchone()
+        if row:
+            await context.bot.send_photo(
+                chat_id=user_id,
+                photo=row["image_file_id"],
+                caption=row["caption"] or "🏆 Today's World Cup 2026 game!",
+            )
+        else:
+            await context.bot.send_message(
+                chat_id=user_id,
+                text="⚠️ No World Cup game has been uploaded in the last 24 hours.",
+            )
+    else:
+        caption = (
+            "🏆 *WORLD CUP 2026 — VIP ACCESS* 🏆\n\n"
+            "⚽ One payment. Every single game covered.\n\n"
+            "From the 🥅 Group Stages all the way to the 🏆 Grand Final, "
+            "you get expert predictions for:\n"
+            "• 🌍 Group Stage matches\n"
+            "• 🔥 Round of 32 & Round of 16\n"
+            "• ⚡ Quarter-Finals\n"
+            "• 💥 Semi-Finals\n"
+            "• 🏆 The Final\n\n"
+            "💎 *₦15,000 — LIFETIME ACCESS*\n"
+            "No renewals. No monthly fees. Pay once, win all tournament long! 🚀"
+        )
+        markup = InlineKeyboardMarkup(
+            [[InlineKeyboardButton("💳 Pay ₦15,000 (Lifetime)", callback_data="sub_15000")]]
+        )
+        cursor.execute("SELECT file_id FROM worldcup_image LIMIT 1")
+        img = cursor.fetchone()
+        if img and img["file_id"]:
+            await context.bot.send_photo(
+                chat_id=user_id,
+                photo=img["file_id"],
+                caption=caption,
+                parse_mode="Markdown",
+                reply_markup=markup,
+            )
+        else:
+            await context.bot.send_message(
+                chat_id=user_id,
+                text=caption,
+                parse_mode="Markdown",
+                reply_markup=markup,
+            )
+
+
+async def upload_worldcup(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if user_id != ADMIN_ID:
+        await update.message.reply_text("❌ You're not allowed to upload.")
+        return
+    await update.message.reply_text(
+        "📝 Click the button below to upload today's World Cup game:",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("📎 Upload Now", callback_data="start_upload_worldcup")]
+        ]),
+    )
+
+
+async def handle_upload_worldcup_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    user_id = query.from_user.id
+    if user_id != ADMIN_ID:
+        await query.message.reply_text("❌ You're not allowed to upload.")
+        return
+    awaiting_worldcup.add(user_id)
+    await query.message.reply_text("📸 Now send the World Cup game image (add a caption if you want).")
+
+
+async def save_worldcup_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if user_id != ADMIN_ID or user_id not in awaiting_worldcup:
+        return
+    awaiting_worldcup.remove(user_id)
+
+    try:
+        file_id = update.message.photo[-1].file_id
+    except Exception:
+        await update.message.reply_text("❌ Couldn't read the image. Try again.")
+        return
+
+    caption = update.message.caption or "🏆 World Cup 2026 game is live!"
+
+    cursor.execute(
+        "INSERT INTO worldcup_games (image_file_id, caption) VALUES (%s, %s)",
+        (file_id, caption),
+    )
+    conn.commit()
+
+    try:
+        await context.bot.send_message(
+            chat_id=CHANNEL_ID,
+            text="🏆 *Today's World Cup 2026 game is ready!*\n\nClick below to view it!",
+            parse_mode="Markdown",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("🔍 View World Cup Game", url=f"https://t.me/{YOUR_BOT_USERNAME}")
+            ]]),
+        )
+    except Exception as e:
+        print(f"❌ Failed to send to channel: {e}")
+
+    try:
+        cursor.execute("SELECT user_id FROM worldcup_prediction WHERE expires_at > NOW()")
+        rows = cursor.fetchall()
+        user_ids = [row["user_id"] for row in rows]
+        tasks = [
+            context.bot.send_photo(chat_id=uid, photo=file_id, caption=caption)
+            for uid in user_ids
+        ]
+        results = await run_tasks_in_batches(tasks)
+        for uid, result in zip(user_ids, results):
+            if isinstance(result, Exception):
+                print(f"❌ Could not send to {uid}: {result}")
+
+        await context.bot.send_message(
+            chat_id=ADMIN_ID,
+            text=f"✅ World Cup game sent to {len(user_ids)} subscribers and posted in the channel.",
+        )
+    except Exception as e:
+        print(f"❌ Error sending World Cup game: {e}")
+
+
+async def change_worldcup_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID:
+        return await update.message.reply_text("⛔ You're not authorized.")
+    awaiting_worldcup_image.add(update.effective_user.id)
+    await update.message.reply_text("📸 Send the new promo image for World Cup 2026.")
+
+
+async def save_worldcup_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id not in awaiting_worldcup_image:
+        return
+    awaiting_worldcup_image.remove(update.effective_user.id)
+    try:
+        file_id = update.message.photo[-1].file_id
+    except Exception:
+        return await update.message.reply_text("❌ Couldn't read the image.")
+    cursor.execute("DELETE FROM worldcup_image")
+    cursor.execute("INSERT INTO worldcup_image (file_id) VALUES (%s)", (file_id,))
+    conn.commit()
+    await update.message.reply_text("✅ World Cup promo image updated.")
+
+
+app.add_handler(CallbackQueryHandler(handle_worldcup, pattern="^worldcup$"))
+app.add_handler(MessageHandler(filters.TEXT & filters.Regex("🏆 World Cup 2026"), handle_worldcup))
+app.add_handler(CommandHandler("wcupload", upload_worldcup))
+app.add_handler(CallbackQueryHandler(handle_upload_worldcup_button, pattern="^start_upload_worldcup$"))
+app.add_handler(CommandHandler("wcimage", change_worldcup_image))
 
 async def broadcast_to_ids(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Broadcast a custom message to specific user IDs."""

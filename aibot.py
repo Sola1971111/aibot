@@ -1508,7 +1508,7 @@ async def save_today_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text="📢 *Today's Premium/Ai Pick is ready!*\n\nClick below to view the game of the day!",
             parse_mode="Markdown",
             reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton("🔍 View Today’s Pick", url=f"https://t.me/CoozieAibot")
+                InlineKeyboardButton("🔍 View Today’s Pick", url=f"https://t.me/CooziepickAibot")
             ]])
         )
     except Exception as e:
@@ -1781,7 +1781,7 @@ async def save_today_rollover(update: Update, context: ContextTypes.DEFAULT_TYPE
             text="📢 *Today's Rollover Pick is ready!*\n\nClick below to view the game of the day!",
             parse_mode="Markdown",
             reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton("🔍 View Today’s Pick", url=f"https://t.me/CoozieAibot")
+                InlineKeyboardButton("🔍 View Today’s Pick", url=f"https://t.me/CooziepickAibot")
             ]])
         )
     except Exception as e:

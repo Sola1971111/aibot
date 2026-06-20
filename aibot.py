@@ -761,7 +761,7 @@ async def show_subscription_options(update: Update, context: ContextTypes.DEFAUL
 
     await context.bot.send_photo(
         chat_id=chat_id,
-        photo="https://imgur.com/a/rJ4q3N3",  # Replace with your hosted image URL
+        photo="https://imgur.com/a/6T88mJy",  # Replace with your hosted image URL
         caption=caption,
         parse_mode="Markdown",
         reply_markup=InlineKeyboardMarkup(keyboard)
@@ -804,7 +804,7 @@ async def show_subscription_options_p(update: Update, context: ContextTypes.DEFA
     
     await context.bot.send_photo(
         chat_id=chat_id,
-        photo="https://imgur.com/a/rJ4q3N3",  # Replace with your hosted image URL
+        photo="https://imgur.com/a/6T88mJy",  # Replace with your hosted image URL
         caption=caption,
         parse_mode="Markdown",
         reply_markup=InlineKeyboardMarkup(keyboard)

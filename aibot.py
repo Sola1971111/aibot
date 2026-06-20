@@ -1018,7 +1018,7 @@ async def handle_receipt_action(update: Update, context: ContextTypes.DEFAULT_TY
                 """,
                 (user_id, amount, duration_days, expires_at),
             )
-            
+
         else:
             cursor.execute(
                 """
@@ -1365,7 +1365,7 @@ from datetime import time, datetime
 from telegram.constants import ParseMode
 
 # Replace with your actual values
-YOUR_BOT_USERNAME = "CoozieAibot"
+YOUR_BOT_USERNAME = "CooziepickAibot"
 import os
 from openai import OpenAI
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -2387,7 +2387,7 @@ async def handle_discount(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             await context.bot.send_photo(
                 chat_id=uid,
-                photo="https://imgur.com/a/rJ4q3N3",  # Replace with real file ID
+                photo="https://ibb.co/RTs7KCLF",  # Replace with real file ID
                 caption=(
                     f"🔥 *Limited-Time Offer!*\n\n"
                     f"Subscribe for 1 month at just ₦6,500 (instead of ₦9,500).\n"

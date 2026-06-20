@@ -1008,20 +1008,21 @@ async def handle_receipt_action(update: Update, context: ContextTypes.DEFAULT_TY
                 """,
                 (user_id, amount, duration_days, expires_at),
             )
-        else:
+        elif amount == 15000:
             cursor.execute(
                 """
-                INSERT INTO paid_predictions (user_id, amount, duration, expires_at)
+                INSERT INTO worldcup_prediction (user_id, amount, duration, expires_at)
                 VALUES (%s, %s, %s, %s)
                 ON CONFLICT (user_id) DO UPDATE
                 SET amount = EXCLUDED.amount, duration = EXCLUDED.duration, expires_at = EXCLUDED.expires_at
                 """,
                 (user_id, amount, duration_days, expires_at),
             )
-        elif amount == 15000:
+            
+        else:
             cursor.execute(
                 """
-                INSERT INTO worldcup_prediction (user_id, amount, duration, expires_at)
+                INSERT INTO paid_predictions (user_id, amount, duration, expires_at)
                 VALUES (%s, %s, %s, %s)
                 ON CONFLICT (user_id) DO UPDATE
                 SET amount = EXCLUDED.amount, duration = EXCLUDED.duration, expires_at = EXCLUDED.expires_at

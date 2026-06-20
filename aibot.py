@@ -44,7 +44,7 @@ load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 # Default promo image for correct scores
-DEFAULT_SCORE_IMAGE = "https://ibb.co/zH4kKs2q"
+DEFAULT_SCORE_IMAGE = "https://ibb.co/QZRgHhZ"
 
 # Promo assets for Aviator feature
 AVIATOR_PROMO_IMAGE = "https://ibb.co/zH4kKs2q"
